@@ -123,7 +123,7 @@ def FlatClassification(datasetfile):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:25] for z in dataset])
     y = np.array([z[0] for z in dataset])
-    print np.shape(X), np.shape(y)
+    printi( np.shape(X), np.shape(y))
     
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
@@ -137,7 +137,7 @@ def FlatClassification(datasetfile):
     indices = np.isin(y, above_min_conns)
     X = X[indices]
     y = y[indices]
-    print np.shape(X), np.shape(y)
+    print (np.shape(X), np.shape(y))
 
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     kf = KFold(n_splits=10, shuffle=True)
@@ -148,7 +148,7 @@ def FlatClassification(datasetfile):
 
         rf.fit(X_train, y_train)
         l1 = rf.predict(X_test)
-        print accuracy_score(l1,y_test)
+        print( accuracy_score(l1,y_test))
 
 if __name__ == "__main__":
     FlatClassification("csvs/GCDay1stats.csv")
