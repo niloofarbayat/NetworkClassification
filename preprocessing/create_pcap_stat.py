@@ -3,16 +3,15 @@ import pytcpdump
 import re
 import tldextract
 
-pcap_file = ['HTTPS-Identification-Framework/pcaps/GCDay1.pcap']
-output_file_stats = 'ML_dataset/csvs/GCDay1stats.csv'
-output_file_seqs = 'ML_dataset/csvs/GCDay1seq.csv'
+pcap_file = ['../HTTPS-Identification-Framework/pcaps/GCDay1.pcap']
+output_file_stats = '../ML/training/GCDay1stats.csv'
+output_file_seqs = '../DL/training/GCDay1seq.csv'
 
 def stat_head():
 	return "sni,size25,size50,size75,sizeMax,sizeAvg,sizeVar,iat25,iat50,iat75,iatMax,iatAvg,iatVar,Csize25,Csize50,Csize75,CsizeMax,CsizeAvg,CsizeVar,Ciat25,Ciat50,Ciat75,CiatMax,CiatAvg,CiatVar\n"
 
 def sequence_head(n):
 	return "sni," + ','.join([str(i) for i in range(1,n)]) + "\n"
-
 
 #TODO: replace these with numpy functions
 def stat_calc(x, limit):
@@ -51,7 +50,7 @@ def first_n_packet_within_time(arrival,first_n_second):
 
 #TODO: include packet AND payload size stats as features?
 def stat_create_first_n_second(data,filename, first_n_second):
-	with open(filename,'wb') as f:
+	with open(filename,'w') as f:
 		f.write(stat_head())
 		for id in data:
 			item=data[id]
@@ -80,7 +79,7 @@ def stat_create_first_n_second(data,filename, first_n_second):
 			f.write('\n')
 
 def sequence_create_first_n_packets(data, filename, first_n_packets):
-	with open(filename,'wb') as f:
+	with open(filename,'w') as f:
 		f.write(sequence_head(first_n_packets))
 		for id in data:
 			item=data[id]

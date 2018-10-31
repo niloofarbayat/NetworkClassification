@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def float_list(l):
-	return [float(x)  for x in l] #if x<1400 else 1400.0
+	return [float(x)  for x in l]
 
 def read_csv(file_path, has_header=True):
 	with open(file_path) as f:
