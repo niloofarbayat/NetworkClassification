@@ -1,0 +1,2 @@
+https://paul.querna.org/articles/2005/04/24/tls-server-name-indication/
+https://en.wikipedia.org/wiki/Server_Name_Indication
