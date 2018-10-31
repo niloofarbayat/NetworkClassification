@@ -123,7 +123,7 @@ def FlatClassification(datasetfile):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:25] for z in dataset])
     y = np.array([z[0] for z in dataset])
-    printi( np.shape(X), np.shape(y))
+    print( np.shape(X), np.shape(y))
     
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
