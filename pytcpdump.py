@@ -123,7 +123,7 @@ class LRUCache:
 			conn_index = 0
 			for key in reversed(self.cache):
 				item = self.cache[key]
-				print conn_id_to_str(key), item[0:2], '#pkts', len(item[4][0]),len(item[4][1])
+				print(conn_id_to_str(key), item[0:2], '#pkts', len(item[4][0]),len(item[4][1]))
 				conn_index+=1
 				if conn_index==count:
 					return
@@ -157,7 +157,7 @@ def sni_pos(data):
 			if ord(data[pos1-1])==0: #data[pos1-2:pos1] should be the len
 				pos1+=1
 			if (ord(data[pos1-2])<<8)+ord(data[pos1-1]) == pos2-pos1:
-				#print pkt_hdr.sec, pkt_hdr.usec, data[pos1:pos2], the_time
+				#print (pkt_hdr.sec, pkt_hdr.usec, data[pos1:pos2], the_time)
 				return pos1, pos2
 		pos=pos2
 	
@@ -191,7 +191,7 @@ def process_file(filename):
 		while 1:
 			if f.readinto(pkt_hdr)!=pkt_hdr_size:
 				break
-			#print pkt_hdr.len, pkt_hdr.olen, pkt_hdr.sec, pkt_hdr.usec
+			#print (pkt_hdr.len, pkt_hdr.olen, pkt_hdr.sec, pkt_hdr.usec)
 			data = f.read(pkt_hdr.len)
 
 			ip_pos = get_ip_pos(data) # IP layer
@@ -210,7 +210,7 @@ def process_file(filename):
 			tcp_load_pos = tcp_pos + (( ord(data[tcp_pos+12]) & 0xf0 )>>2)
 			lru.update(conn_id, fromLocal, pkt_hdr, pkt_hdr.olen-tcp_load_pos)
 			if (tcp_load_pos+5<len(data)) and ( ord(data[tcp_load_pos]) == 0x16) and (ord(data[tcp_load_pos+5]) == 0x01):
-				#print 'https hello packet'
+				#print ('https hello packet')
 				pos1, pos2 = sni_pos(data)
 				if pos1>0:
 					lru.set_hostname(conn_id, data[pos1:pos2])
@@ -226,9 +226,9 @@ def thr_https_hello():
 			p = subprocess.Popen(('tcpdump', '-U', '-i', interface, '-s', snaplen, '-w', '-', '(tcp[((tcp[12:1] & 0xf0) >> 2)+5:1] = 0x01) and (tcp[((tcp[12:1] & 0xf0) >> 2):1] = 0x16)'), stdout=subprocess.PIPE)
 	try:
 		pcap_hdr = pcap_hdr_s()
-		#print "pcap_hdr read, len =", 
+		#print ("pcap_hdr read, len =", )
 		p.stdout.readinto(pcap_hdr)
-		#print "snaplen", pcap_hdr.snaplen,'network', pcap_hdr.network
+		#print ("snaplen", pcap_hdr.snaplen,'network', pcap_hdr.network)
 		pkt_hdr = pcaprec_hdr_s()
 		pkt_hdr_size = sizeof(pkt_hdr)
 		while 1:
@@ -237,13 +237,13 @@ def thr_https_hello():
 			#	readable, writable, exceptional = select.select([p.stdout],[],[p.stdout],0.01)
 			#	if readable:
 			#		break
-			#	print 'waiting',time.time()
+			#	print ('waiting',time.time())
 			if p.stdout.readinto(pkt_hdr)!=pkt_hdr_size:
 				break
 			#the_time = time.time()
-			#print 'pkt read', pkt_hdr.sec, pkt_hdr.usec, pkt_hdr.len, pkt_hdr.olen
+			#print ('pkt read', pkt_hdr.sec, pkt_hdr.usec, pkt_hdr.len, pkt_hdr.olen)
 			data = p.stdout.read(pkt_hdr.len)
-			#print "mac1", ':'.join(x.encode('hex') for x in data[0:6]) #dest MAC
+			#print ("mac1", ':'.join(x.encode('hex') for x in data[0:6]) )#dest MAC
 			#print "mac2", ':'.join(x.encode('hex') for x in data[6:12]) #src MAC
 			#print 'ip len', ':'.join(x.encode('hex') for x in data[16:18]), struct.unpack(">H", data[16:18])[0]
 			#tcp_pos = 
@@ -256,9 +256,9 @@ def thr_https_hello():
 				conn_id = data[ip_pos+ 12: ip_pos+20]+data[tcp_pos : tcp_pos+4] + 't'
 				conn_id , _ = unify_conn_id(conn_id)
 				lru.set_hostname(conn_id, data[pos1:pos2])								
-	except Exception, e:
+	except Exception as e:
 		traceback.print_exc()
-		print 'tcpdump https hello error'
+		print ('tcpdump https hello error')
 	p.kill()
 
 def thr_pkt_hdr():
@@ -294,9 +294,9 @@ def thr_pkt_hdr():
 			conn_id , fromLocal = unify_conn_id(conn_id)
 			lru.update(conn_id, pkt_hdr, fromLocal)
 			# print conn_id_to_str(conn_id)
-	except Exception, e:
+	except Exception as e:
 		traceback.print_exc()
-		print 'tcpdump thread error'
+		print ('tcpdump thread error')
 	p.kill()
 
 def thr_print_latest():
@@ -346,8 +346,8 @@ def stat_create(data,filename, nlimit, googlevideo):
 				f.write(line)
 				f.write('\n')
 				'''
-				print conn_id_to_str(id)
-				print 'received sizes'
+				print (conn_id_to_str(id))
+				print ('received sizes')
 				dir=0
 				for i in range(len(item[4][dir])):
 					print '  ',item[4][dir][i],item[5][dir][i],
@@ -386,7 +386,7 @@ if __name__ == "__main__":
 		threading_https_hello.join()
 	if threading_pkt_hdr:
 		threading_pkt_hdr.join()
-	print "data read finished, keep",len(lru.cache),'records'
+	print ("data read finished, keep",len(lru.cache),'records')
 	#lru.print_latest(30)
 	stat_create(lru.cache,'browse_limit2.csv', nlimit=2, googlevideo=False)
 #for row in iter(p.stdout.readline, b''):
