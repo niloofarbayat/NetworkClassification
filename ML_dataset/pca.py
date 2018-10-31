@@ -16,22 +16,13 @@ def read_csv(file_path, has_header=True):
 			data.append([x for x in line])
 	return data
 
-nf_fname = 'netflix_2s.csv'
-yt_fname = 'youtube_2s.csv'
-browsing_fname = 'browsing_2s.csv'
-
+filename = ''
 dataset=[]
-dataset+=read_csv(yt_fname)
-y=[2]*len(dataset)
-dataset+=read_csv(nf_fname)
-y+=[1]*(len(dataset) - len(y))
-	
-dataset+=read_csv(browsing_fname)
-y+=[0]*(len(dataset) - len(y))
+dataset+=read_csv(filename)
 
 result = []
-X = np.array([ float_list(z[3:27]) for z in dataset])
-y = np.array(y)
+X = np.array([float_list(z[1:25]) for z in dataset])
+y = np.array([float_list(z[0]) for z in dataset])
 
 fig = plt.figure(1, figsize=(4, 3))
 ax = Axes3D(fig)

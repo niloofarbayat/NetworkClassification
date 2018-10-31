@@ -13,6 +13,8 @@ def stat_head():
 def sequence_head(n):
 	return "sni," + ','.join([str(i) for i in range(1,n)]) + "\n"
 
+
+#TODO: replace these with numpy functions
 def stat_calc(x, limit):
 	try:
 		l=min(len(x),limit)
@@ -47,6 +49,7 @@ def first_n_packet_within_time(arrival,first_n_second):
 	except:
 		return len(arrival)
 
+#TODO: include packet AND payload size stats as features?
 def stat_create_first_n_second(data,filename, first_n_second):
 	with open(filename,'wb') as f:
 		f.write(stat_head())
@@ -87,19 +90,22 @@ def sequence_create_first_n_packets(data, filename, first_n_packets):
 			if sni == 'unknown' or sni == 'unknown.':
 				continue
 
-			if len(item[2][0]) + len(item[2][1]) > 100:
+			#TODO: remove leading zeros in this case?
+			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
 				print "Too Many Packets: ", len(item[2][0]) + len(item[2][1])
 
 			line=[sni]
+
+			#TODO: Also sort by milliseconds using combine_at function
 			SCseq = zip(item[2][0], item[5][0])
 			CSseq = zip(item[2][1], item[5][1])
 			seq = [str(x) for _,x in sorted(SCseq + CSseq)]
 
-			# pad zeros
+			# Here is zero padding
 			if len(seq) < first_n_packets:
 				seq = [str(0)]*(first_n_packets - len(seq)) + seq
 
-			line+=seq[0:100]
+			line+=seq[0:first_n_packets]
 			line= ','.join(line)
 			f.write(line)
 			f.write('\n')
@@ -108,6 +114,7 @@ def SNIModificationbyone(sni):
     temp = tldextract.extract(sni)
     x = re.sub("\d+", "", temp.subdomain)  # remove numbers
     x = re.sub("[-,.]", "", x)  #remove dashes
+    x = re.sub("[www.,]", "", x) #remove www
     if len(x) > 0:
         newsni = x + "." + temp.domain + "." + temp.suffix  # reconstruct the sni
     else:
@@ -120,5 +127,6 @@ for fname in pcap_file:
 	pytcpdump.process_file(fname)
 	print fname,"finished, kept",len(pytcpdump.lru.cache),'records'
 
-stat_create_first_n_second(pytcpdump.lru.cache, output_file_stats, first_n_second=5)
-sequence_create_first_n_packets(pytcpdump.lru.cache, output_file_seqs, first_n_packets=100)
+if __name__ == "__main__":
+	stat_create_first_n_second(pytcpdump.lru.cache, output_file_stats, first_n_second=5)
+	sequence_create_first_n_packets(pytcpdump.lru.cache, output_file_seqs, first_n_packets=100)
