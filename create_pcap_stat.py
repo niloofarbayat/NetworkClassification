@@ -92,7 +92,7 @@ def sequence_create_first_n_packets(data, filename, first_n_packets):
 
 			#TODO: remove leading zeros in this case?
 			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
-				print "Too Many Packets: ", len(item[2][0]) + len(item[2][1])
+				print ("Too Many Packets: ", len(item[2][0]) + len(item[2][1]))
 
 			line=[sni]
 
@@ -123,9 +123,9 @@ def SNIModificationbyone(sni):
     return newsni
 
 for fname in pcap_file:
-	print 'process', fname
+	print ('process', fname)
 	pytcpdump.process_file(fname)
-	print fname,"finished, kept",len(pytcpdump.lru.cache),'records'
+	print (fname,"finished, kept",len(pytcpdump.lru.cache),'records')
 
 if __name__ == "__main__":
 	stat_create_first_n_second(pytcpdump.lru.cache, output_file_stats, first_n_second=5)
