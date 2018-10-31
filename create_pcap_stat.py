@@ -34,13 +34,13 @@ def stat_calc(x, limit):
 
 def combine_at(sec, usec):
 	l = len(sec)
-	return [sec[i]+usec[i]*1e-6 for i in xrange(l)]
+	return [sec[i]+usec[i]*1e-6 for i in range(l)]
 
 def stat_prepare_iat(sec,  usec, t=None):
 	l = len(sec)
 	if not t:	
 		t = combine_at(sec, usec)
-	return [t[i+1]-t[i] for i in xrange(l-1)]
+	return [t[i+1]-t[i] for i in range(l-1)]
 
 def first_n_packet_within_time(arrival,first_n_second):
 	limit = arrival[0]+first_n_second
