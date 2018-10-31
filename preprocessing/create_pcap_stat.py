@@ -14,16 +14,13 @@ def sequence_head(n):
 	return "sni," + ','.join([str(i) for i in range(1,n)]) + "\n"
 
 #TODO: replace these with numpy functions
-def stat_calc(x, limit):
+def stat_calc(x):
 	try:
-		l=min(len(x),limit)
+		l=len(x)
 		if l==0:
 			return [str(a) for a in [0,0,0,0,0,0]]
 		if l==1:
 			return [str(a) for a in [x[0], x[0], x[0], x[0], x[0], 0]]
-		if len(x)>limit:
-			x=x[:limit]
-			l=len(x)
 		x = sorted(x)
 		avg = float(sum(x)) / l
 		var = sum([(xi - avg) ** 2 for xi in x]) / l
@@ -41,15 +38,8 @@ def stat_prepare_iat(sec,  usec, t=None):
 		t = combine_at(sec, usec)
 	return [t[i+1]-t[i] for i in range(l-1)]
 
-def first_n_packet_within_time(arrival,first_n_second):
-	limit = arrival[0]+first_n_second
-	try:
-		return next(i for i, x in enumerate(arrival) if x > limit)
-	except:
-		return len(arrival)
-
 #TODO: include packet AND payload size stats as features?
-def stat_create_first_n_second(data,filename, first_n_second):
+def stat_create(data,filename):
 	with open(filename,'w') as f:
 		f.write(stat_head())
 		for id in data:
@@ -63,22 +53,20 @@ def stat_create_first_n_second(data,filename, first_n_second):
 			line=[sni]
 			#remote->local
 			arrival = combine_at(item[2][0],item[3][0])
-			first_n_packet = first_n_packet_within_time(arrival,first_n_second)
-			line+=stat_calc(item[5][0], first_n_packet)
+			line+=stat_calc(item[5][0])
 			iat = stat_prepare_iat(item[2][0],item[3][0], arrival)
-			line+=stat_calc(iat, first_n_packet-1)
+			line+=stat_calc(iat)
 			
 			#local->remote
 			arrival = combine_at(item[2][1],item[3][1])
-			first_n_packet = first_n_packet_within_time(arrival,first_n_second)
-			line+=stat_calc(item[5][1], first_n_packet)
+			line+=stat_calc(item[5][1])
 			iat = stat_prepare_iat(item[2][1],item[3][1], arrival)
-			line+=stat_calc(iat, first_n_packet-1)
+			line+=stat_calc(iat)
 			line= ','.join(line)
 			f.write(line)
 			f.write('\n')
 
-def sequence_create_first_n_packets(data, filename, first_n_packets):
+def sequence_create(data, filename, first_n_packets):
 	with open(filename,'w') as f:
 		f.write(sequence_head(first_n_packets))
 		for id in data:
@@ -127,5 +115,5 @@ for fname in pcap_file:
 	print (fname,"finished, kept",len(pytcpdump.lru.cache),'records')
 
 if __name__ == "__main__":
-	stat_create_first_n_second(pytcpdump.lru.cache, output_file_stats, first_n_second=5)
-	sequence_create_first_n_packets(pytcpdump.lru.cache, output_file_seqs, first_n_packets=100)
+	stat_create(pytcpdump.lru.cache, output_file_stats)
+	sequence_create(pytcpdump.lru.cache, output_file_seqs, first_n_packets=100)

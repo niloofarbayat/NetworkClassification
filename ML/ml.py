@@ -119,25 +119,28 @@ def MultiLevelClassification(datasetfile, flimit):
 #############################################
 # Flat Classification method
 #############################################
-def FlatClassification(datasetfile):
+def FlatClassification(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:25] for z in dataset])
     y = np.array([z[0] for z in dataset])
-    print( np.shape(X), np.shape(y))
+    print("Shape of X =", np.shape(X))
+    print("Shape of y =", np.shape(y))     
     
+    print("Entering filtering section! ")
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
 
-    MIN_CONNECTIONS = 100
-
     for i in range(len(counts)):
-        if counts[i] > MIN_CONNECTIONS:
+        if counts[i] > min_connections:
             above_min_conns.append(snis[i])
 
+    print("Filtering done. SNI classes remaining: ", len(above_min_conns))
     indices = np.isin(y, above_min_conns)
     X = X[indices]
     y = y[indices]
-    print (np.shape(X), np.shape(y))
+
+    print("Filtered shape of X =", np.shape(X))
+    print("Filtered shape of y =", np.shape(y))     
 
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     kf = KFold(n_splits=10, shuffle=True)
@@ -151,5 +154,5 @@ def FlatClassification(datasetfile):
         print( accuracy_score(l1,y_test))
 
 if __name__ == "__main__":
-    FlatClassification("csvs/GCDay1stats.csv")
-    MultiLevelClassification("csvs/GCDay1stats.csv",42)
+    FlatClassification("training/GCDay1stats.csv", 100)
+    MultiLevelClassification("training/GCDay1stats.csv",42)
