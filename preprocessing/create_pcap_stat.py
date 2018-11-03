@@ -40,7 +40,6 @@ def stat_prepare_iat(t):
 	p25,p50,p75 = get_percentiles(iat)
 	return [str(a) for a in [p25,p50,p75]]
 
-#TODO: include packet AND payload size stats as features?
 def stat_create(data,filename):
 	with open(filename,'w') as f:
 		f.write(stat_head())
@@ -93,7 +92,6 @@ def sequence_create(data, filename, first_n_packets):
 
 			line=[sni]
 
-			#TODO: Also sort by milliseconds using combine_at function
 			arrival1=combine_at(item[2][0], item[3][0])
 			arrival2=combine_at(item[2][1], item[3][1])
 			
