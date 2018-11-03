@@ -2,41 +2,43 @@ import subprocess, struct, time, select, threading, os, sys, traceback, itertool
 import pytcpdump
 import re
 import tldextract
+import numpy as np
 
 pcap_file = ['../HTTPS-Identification-Framework/pcaps/GCDay1.pcap']
 output_file_stats = '../ML/training/GCDay1stats.csv'
 output_file_seqs = '../DL/training/GCDay1seq.csv'
 
 def stat_head():
-	return "sni,size25,size50,size75,sizeMax,sizeAvg,sizeVar,iat25,iat50,iat75,iatMax,iatAvg,iatVar,Csize25,Csize50,Csize75,CsizeMax,CsizeAvg,CsizeVar,Ciat25,Ciat50,Ciat75,CiatMax,CiatAvg,CiatVar\n"
+	return "sni,CSPktNum,CSPktsize25,CSPktSize50,CSPktSize75,CSPktSizeMax,CSPktSizeAvg,CSPktSizeVar,CSPaysize25,CSPaySize50,CSPaySize75,CSPaySizeMax,CSPaySizeAvg,CSPaySizeVar,CSiat25,CSiat50,CSiat75,SCPktNum,SCPktsize25,SCPktSize50,SCPktSize75,SCPktSizeMax,SCPktSizeAvg,SCPktSizeVar,SCPaysize25,SCPaySize50,SCPaySize75,SCPaySizeMax,SCPaySizeAvg,SCPaySizeVar,SCiat25,SCiat50,SCiat75,PktNum,Pktsize25,PktSize50,PktSize75,PktSizeMax,PktSizeAvg,PktSizeVar,Paysize25,PaySize50,PaySize75,PaySizeMax,PaySizeAvg,PaySizeVar,iat25,iat50,iat75\n"
 
 def sequence_head(n):
 	return "sni," + ','.join([str(i) for i in range(1,n)]) + "\n"
 
-#TODO: replace these with numpy functions
-def stat_calc(x):
-	try:
-		l=len(x)
-		if l==0:
-			return [str(a) for a in [0,0,0,0,0,0]]
-		if l==1:
-			return [str(a) for a in [x[0], x[0], x[0], x[0], x[0], 0]]
-		x = sorted(x)
-		avg = float(sum(x)) / l
-		var = sum([(xi - avg) ** 2 for xi in x]) / l
-		return [str(a) for a in [x[int(round((l-1)/4.0))],x[int(round((l-1)/2.0))],x[int(round((l-1)*3/4.0))],max(x),avg,var] ]
-	except Exception as e:
-		traceback.print_exc()
+def stat_calc(x, iat=False):
+	if len(x)==0:
+		return [str(a) for a in [0,0,0,0,0,0]]
+	if len(x)==1:
+		return [str(a) for a in [x[0], x[0], x[0], x[0], x[0], 0]]
+	x = sorted(x)
+	p25,p50,p75 = get_percentiles(x)
+	return [str(a) for a in [p25,p50,p75,max(x),np.mean(x),np.var(x)]]
+
+def get_percentiles(x):
+	return x[int(round((len(x)-1)/4.0))], x[int(round((len(x)-1)/2.0))], x[int(round((len(x)-1)*3/4.0))]
 
 def combine_at(sec, usec):
 	l = len(sec)
 	return [sec[i]+usec[i]*1e-6 for i in range(l)]
 
-def stat_prepare_iat(sec,  usec, t=None):
-	l = len(sec)
-	if not t:	
-		t = combine_at(sec, usec)
-	return [t[i+1]-t[i] for i in range(l-1)]
+def stat_prepare_iat(t):
+	l = len(t)
+	iat = [t[i+1]-t[i] for i in range(l-1)]
+	if len(iat)==0:
+		return [str(a) for a in [0,0,0]]
+	if len(iat)==1:
+		return [str(a) for a in [iat[0], iat[0], iat[0]]]
+	p25,p50,p75 = get_percentiles(iat)
+	return [str(a) for a in [p25,p50,p75]]
 
 #TODO: include packet AND payload size stats as features?
 def stat_create(data,filename):
@@ -52,16 +54,24 @@ def stat_create(data,filename):
 
 			line=[sni]
 			#remote->local
-			arrival = combine_at(item[2][0],item[3][0])
+			line+=[str(len(item[4][0]))]
+			line+=stat_calc(item[4][0])
 			line+=stat_calc(item[5][0])
-			iat = stat_prepare_iat(item[2][0],item[3][0], arrival)
-			line+=stat_calc(iat)
+			arrival1=combine_at(item[2][0], item[3][0])
+			line+=stat_prepare_iat(arrival1)
 			
 			#local->remote
-			arrival = combine_at(item[2][1],item[3][1])
+			line+=[str(len(item[4][1]))]
+			line+=stat_calc(item[4][1])
 			line+=stat_calc(item[5][1])
-			iat = stat_prepare_iat(item[2][1],item[3][1], arrival)
-			line+=stat_calc(iat)
+			arrival2=combine_at(item[2][1], item[3][1])
+			line+=stat_prepare_iat(arrival2)
+
+			line+=[str(len(item[4][1]) + len(item[4][0]))]
+			line+=stat_calc(item[4][1] + item[4][0])
+			line+=stat_calc(item[5][1] + item[5][0])
+			line+=stat_prepare_iat(sorted(arrival1 + arrival2))
+
 			line= ','.join(line)
 			f.write(line)
 			f.write('\n')
@@ -69,9 +79,9 @@ def stat_create(data,filename):
 def sequence_create(data, filename, first_n_packets):
 	with open(filename,'w') as f:
 		f.write(sequence_head(first_n_packets))
+		counter = 0
 		for id in data:
 			item=data[id]
-
 			sni=SNIModificationbyone(item[0])
 
 			if sni == 'unknown' or sni == 'unknown.':
@@ -79,14 +89,16 @@ def sequence_create(data, filename, first_n_packets):
 
 			#TODO: remove leading zeros in this case?
 			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
-				print ("Too Many Packets: ", len(item[2][0]) + len(item[2][1]))
+				print("Too Many Packets: ", len(item[2][0]) + len(item[2][1]))
 
 			line=[sni]
 
 			#TODO: Also sort by milliseconds using combine_at function
-			SCseq = zip(item[2][0], item[5][0])
-			CSseq = zip(item[2][1], item[5][1])
-			seq = [str(x) for _,x in sorted(SCseq + CSseq)]
+			arrival1=combine_at(item[2][0], item[3][0])
+			arrival2=combine_at(item[2][1], item[3][1])
+			
+			seq = zip(arrival1 + arrival2, list(item[5][0]) + list(item[5][1]))
+			seq = [str(x) for _,x in sorted(seq)]
 
 			# Here is zero padding
 			if len(seq) < first_n_packets:
@@ -97,11 +109,14 @@ def sequence_create(data, filename, first_n_packets):
 			f.write(line)
 			f.write('\n')
 
+#***********************************************************************************
+#SNi modification for the sub-domain parts only
+#***********************************************************************************
 def SNIModificationbyone(sni):
-    temp = tldextract.extract(sni)
+    temp = tldextract.extract(sni.encode().decode())
     x = re.sub("\d+", "", temp.subdomain)  # remove numbers
     x = re.sub("[-,.]", "", x)  #remove dashes
-    x = re.sub("[www.,]", "", x) #remove www
+    x = re.sub("[(?:www.)]", "", x) #remove www
     if len(x) > 0:
         newsni = x + "." + temp.domain + "." + temp.suffix  # reconstruct the sni
     else:

@@ -5,7 +5,6 @@ from pytcpdump_utils import *
 snaplen = '1600'
 LRU_size = 100000 #TODO: This could be a problem
 lru = None
-local_ip = prob_local_ip()
 
 class pcap_hdr_s(Structure):
 	_fields_ = [('magic', c_uint32),
@@ -78,23 +77,23 @@ class LRUCache:
 def sni_pos(data):
 	pos=0
 	while 1:
-		pos=data.find('.',pos)
+		pos=data.find(b'.',pos)
 		if pos<0:
 			return -1,-1
 		pos1=pos
-		while isDomainChar(data[pos1-1]):
+		while isDomainChar(data[pos1-1:pos1]):
 			pos1-=1
 		pos2=pos
 		while 1:
 			pos2+=1
 			if pos2==len(data):
 				break
-			if not isDomainChar(data[pos2]):
+			if not isDomainChar(data[pos2:pos2+1]):
 				break
 		if pos2-pos1>=5:
-			if ord(data[pos1-1])==0: #data[pos1-2:pos1] should be the len
+			if ord(data[pos1-1:pos1])==0: #data[pos1-2:pos1] should be the len
 				pos1+=1
-			if (ord(data[pos1-2])<<8)+ord(data[pos1-1]) == pos2-pos1:
+			if (ord(data[pos1-2:pos1-1])<<8)+ord(data[pos1-1:pos1]) == pos2-pos1:
 				#print (pkt_hdr.sec, pkt_hdr.usec, data[pos1:pos2], the_time)
 				return pos1, pos2
 		pos=pos2
@@ -108,29 +107,32 @@ def process_file(filename):
 	pkt_hdr_size = sizeof(pkt_hdr)
 	with open(filename,'rb') as f:
 		f.readinto(pcap_hdr)
+		counter = 0
 		while 1:
+			counter = counter + 1
 			if f.readinto(pkt_hdr)!=pkt_hdr_size:
 				break
-			#print (pkt_hdr.len, pkt_hdr.olen, pkt_hdr.sec, pkt_hdr.usec)
-			data = f.read(pkt_hdr.len)
 
+			#print (pkt_hdr.len, pkt_hdr.olen, pkt_hdr.sec, pkt_hdr.usec)
+			data =  bytes(f.read(pkt_hdr.len))
 			ip_pos = get_ip_pos(data) # IP layer
+			
 			if ip_pos<0:
+				print("Invalid IP: ", ip_pos)
 				continue
-			tcp_pos = ip_pos + ((ord(data[ip_pos]) & 0x0f)<<2) #mostly equals ip_pos+20 # TCP layer
-			ip_proto = ord(data[ip_pos+9])
-			if  ip_proto == 0x06: #tcp
-				conn_id = data[ip_pos+ 12: ip_pos+20]+data[tcp_pos : tcp_pos+4] + 't'
-			elif ip_proto == 0x17: #udp
+			tcp_pos = ip_pos + ((ord(data[ip_pos:ip_pos+1]) & 0x0f)<<2) #mostly equals ip_pos+20 # TCP layer
+			ip_proto = ord(data[ip_pos+9:ip_pos+10])
+			
+			# must be tcp
+			if ip_proto != 0x06: 
+				print("Skipping unexpected connection: ", ip_proto)
 				continue
-				conn_id = data[ip_pos+ 12: ip_pos+20]+data[tcp_pos : tcp_pos+4] + 'u'
-			else:
-				continue
-			conn_id , fromLocal = unify_conn_id(conn_id, local_ip)
-			tcp_load_pos = tcp_pos + (( ord(data[tcp_pos+12]) & 0xf0 )>>2)
+			
+			conn_id = data[ip_pos+ 12: ip_pos+20] + data[tcp_pos : tcp_pos+4]
+			conn_id, fromLocal = unify_conn_id(conn_id)
+			tcp_load_pos = tcp_pos + (( ord(data[tcp_pos+12:tcp_pos+13]) & 0xf0 )>>2)
 			lru.update(conn_id, fromLocal, pkt_hdr, pkt_hdr.olen-tcp_load_pos)
-			if (tcp_load_pos+5<len(data)) and ( ord(data[tcp_load_pos]) == 0x16) and (ord(data[tcp_load_pos+5]) == 0x01):
-				#print ('https hello packet')
+			if (tcp_load_pos+5<len(data)) and (ord(data[tcp_load_pos:tcp_load_pos+1]) == 0x16) and (ord(data[tcp_load_pos+5:tcp_load_pos+6]) == 0x01):
 				pos1, pos2 = sni_pos(data)
 				if pos1>0:
-					lru.set_hostname(conn_id, data[pos1:pos2])
+					lru.set_hostname(conn_id, data[pos1:pos2].decode())

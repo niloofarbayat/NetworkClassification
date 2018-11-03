@@ -155,4 +155,4 @@ def FlatClassification(datasetfile, min_connections):
 
 if __name__ == "__main__":
     FlatClassification("training/GCDay1stats.csv", 100)
-    MultiLevelClassification("training/GCDay1stats.csv",42)
+    #MultiLevelClassification("training/GCDay1stats.csv",42)
