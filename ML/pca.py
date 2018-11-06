@@ -16,18 +16,30 @@ def read_csv(file_path, has_header=True):
 			data.append([x for x in line])
 	return data
 
-filename = ''
+filename = '/Users/wjackson/Downloads/Weston_Jackson_ancestry_composition_0.5.csv'
 dataset=[]
 dataset+=read_csv(filename)
 
-result = []
-X = np.array([float_list(z[1:25]) for z in dataset])
-y = np.array([float_list(z[0]) for z in dataset])
+print(len(dataset))
 
+result = []
+X = np.array([float_list(z[3:5]) for z in dataset])
+Y = np.array([z[0] for z in dataset])
+
+lookupTable, indexed_dataSet = np.unique(Y, return_inverse=True)
+
+#y = np.array([float_list(z[0]) for z in dataset])
+
+print(np.shape(X))
+plt.scatter(X[:,0], X[:,1], c=indexed_dataSet, s=5)
+plt.show()
+
+"""
 fig = plt.figure(1, figsize=(4, 3))
 ax = Axes3D(fig)
 pca = PCA(n_components=3)
 pca.fit(X)
 T = pca.transform(X)
-ax.scatter(T[0:2000, 0], T[0:2000, 1], T[0:2000, 2], c=y[0:2000], s=2)
+ax.scatter(T[0], T[1], T[2], , s=2)
 plt.show()
+"""

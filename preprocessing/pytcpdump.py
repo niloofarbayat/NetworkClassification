@@ -1,11 +1,12 @@
-import subprocess, struct, time, select, threading, os, sys, traceback, itertools,math, collections
+import subprocess, struct, time, select, threading, os, sys, traceback, itertools, math, collections
 from ctypes import *
 from pytcpdump_utils import *
 
-snaplen = '1600'
-LRU_size = 100000 #TODO: This could be a problem
-lru = None
+cache = None
 
+#***********************************************************************************
+# Pcap file header
+#***********************************************************************************
 class pcap_hdr_s(Structure):
 	_fields_ = [('magic', c_uint32),
 				('v1', c_uint16),
@@ -14,25 +15,37 @@ class pcap_hdr_s(Structure):
 				('sigfigs', c_uint32),
 				('snaplen', c_uint32),
 				('network', c_uint32)]
+
+#***********************************************************************************
+# Packet headers
+#***********************************************************************************
 class pcaprec_hdr_s(Structure):
 	_fields_ = [('sec', c_uint32),
 				('usec', c_uint32),
 				('len', c_uint32),
 				('olen', c_uint32)]
 
-
-#index help:
-#0:str:hostname, 
-#1:[int,int]:accumulated bytes[remote->local, local->remote], 
-#2:list[[int],[int]]:arrival seconds, 
-#3:list[[int],[int]]:arrival micro-seconds, 
-#4:list[[int],[int]]:packet size
-#5:list[[int],[int]]:tcp payload size
-class LRUCache:
-	def __init__(self, capacity):
-		self.capacity = capacity
+#***********************************************************************************
+# Cache stores data for each TCP handshake. 
+# 
+# Key:
+# - connections ID
+# 
+# Values:
+# - TCP data dictionary
+#
+# 0:str:hostname, 
+# 1:[int,int]:accumulated bytes[remote->local, local->remote], 
+# 2:list[[int],[int]]:arrival seconds, 
+# 3:list[[int],[int]]:arrival micro-seconds, 
+# 4:list[[int],[int]]:packet size
+# 5:list[[int],[int]]:tcp payload size
+#***********************************************************************************
+class Cache:
+	def __init__(self):
 		self.lock = threading.RLock()
 		self.cache = collections.OrderedDict()
+	
 	def set_hostname(self, key, hostname):
 		with self.lock:
 			item = self.pop(key)
@@ -56,33 +69,22 @@ class LRUCache:
 			except KeyError:
 				return ['unknown',[0,0],[[],[]],[[],[]],[[],[]],[[],[]]]
 
-	def get(self, key):
-		with self.lock:
-			try:
-				value = self.cache.pop(key)
-				self.cache[key] = value
-				return value
-			except KeyError:
-				return -1
-
-	def set(self, key, value):
-		with self.lock:
-			try:
-				self.cache.pop(key)
-			except KeyError:
-				if len(self.cache) >= self.capacity:
-					self.cache.popitem(last=False)
-			self.cache[key] = value
-
+#***********************************************************************************
+# Search for the SNI!
+#***********************************************************************************
 def sni_pos(data):
 	pos=0
 	while 1:
 		pos=data.find(b'.',pos)
 		if pos<0:
 			return -1,-1
+		
+		# get start of domain
 		pos1=pos
 		while isDomainChar(data[pos1-1:pos1]):
 			pos1-=1
+
+		# get end of domain
 		pos2=pos
 		while 1:
 			pos2+=1
@@ -90,18 +92,24 @@ def sni_pos(data):
 				break
 			if not isDomainChar(data[pos2:pos2+1]):
 				break
+
+		# min domain length
 		if pos2-pos1>=5:
 			if ord(data[pos1-1:pos1])==0: #data[pos1-2:pos1] should be the len
 				pos1+=1
 			if (ord(data[pos1-2:pos1-1])<<8)+ord(data[pos1-1:pos1]) == pos2-pos1:
-				#print (pkt_hdr.sec, pkt_hdr.usec, data[pos1:pos2], the_time)
 				return pos1, pos2
+		
+		# try again
 		pos=pos2
-	
+
+#***********************************************************************************
+# The meat and potatoes
+#***********************************************************************************
 def process_file(filename):
-	global lru
-	if not lru:
-		lru = LRUCache(LRU_size)
+	global cache
+	if not cache:
+		cache = Cache()
 	pcap_hdr = pcap_hdr_s()
 	pkt_hdr = pcaprec_hdr_s()
 	pkt_hdr_size = sizeof(pkt_hdr)
@@ -113,14 +121,16 @@ def process_file(filename):
 			if f.readinto(pkt_hdr)!=pkt_hdr_size:
 				break
 
-			#print (pkt_hdr.len, pkt_hdr.olen, pkt_hdr.sec, pkt_hdr.usec)
+			# get next packet
 			data =  bytes(f.read(pkt_hdr.len))
 			ip_pos = get_ip_pos(data) # IP layer
 			
+			# this never happens
 			if ip_pos<0:
 				print("Invalid IP: ", ip_pos)
 				continue
-			tcp_pos = ip_pos + ((ord(data[ip_pos:ip_pos+1]) & 0x0f)<<2) #mostly equals ip_pos+20 # TCP layer
+			
+			tcp_pos = ip_pos + ((ord(data[ip_pos:ip_pos+1]) & 0x0f)<<2)
 			ip_proto = ord(data[ip_pos+9:ip_pos+10])
 			
 			# must be tcp
@@ -131,8 +141,8 @@ def process_file(filename):
 			conn_id = data[ip_pos+ 12: ip_pos+20] + data[tcp_pos : tcp_pos+4]
 			conn_id, fromLocal = unify_conn_id(conn_id)
 			tcp_load_pos = tcp_pos + (( ord(data[tcp_pos+12:tcp_pos+13]) & 0xf0 )>>2)
-			lru.update(conn_id, fromLocal, pkt_hdr, pkt_hdr.olen-tcp_load_pos)
+			cache.update(conn_id, fromLocal, pkt_hdr, pkt_hdr.olen-tcp_load_pos)
 			if (tcp_load_pos+5<len(data)) and (ord(data[tcp_load_pos:tcp_load_pos+1]) == 0x16) and (ord(data[tcp_load_pos+5:tcp_load_pos+6]) == 0x01):
 				pos1, pos2 = sni_pos(data)
 				if pos1>0:
-					lru.set_hostname(conn_id, data[pos1:pos2].decode())
+					cache.set_hostname(conn_id, data[pos1:pos2].decode())
