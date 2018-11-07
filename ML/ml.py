@@ -70,12 +70,22 @@ def multiLevelEval(l2real, l2predict):
     print("[+] Invalid :" + str(round((float(unknown) / len(l2real)),2)))
     return (float(total) / len(l2real))
 
-
-#############################################
+#***********************************************************************************
 # Multi-Level Classification 
-#############################################
+#
+# This function borrowed from the following paper:
+#
+# Multi-Level identification Framework to Identify HTTPS Services
+# Author by Wazen Shbair,
+# University of Lorraine,
+# France
+# wazen.shbair@gmail.com
+# January, 2017
+#
+# SNi modification for the sub-domain parts only
+#***********************************************************************************
 
-#TODO: get this to work
+#TODO: Do we care about this?
 def MultiLevelClassification(datasetfile, flimit):
     dataset=read_csv(datasetfile)
     result = []
@@ -116,12 +126,23 @@ def MultiLevelClassification(datasetfile, flimit):
 
     return np.mean(totalac)
     
-#############################################
-# Flat Classification method
-#############################################
+#***********************************************************************************
+# Flat Classification 
+#
+# This function borrowed from the following paper:
+#
+# Multi-Level identification Framework to Identify HTTPS Services
+# Author by Wazen Shbair,
+# University of Lorraine,
+# France
+# wazen.shbair@gmail.com
+# January, 2017
+#
+# SNi modification for the sub-domain parts only
+#***********************************************************************************
 def FlatClassification(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
-    X = np.array([z[1:25] for z in dataset])
+    X = np.array([z[1:42] for z in dataset])
     y = np.array([z[0] for z in dataset])
     print("Shape of X =", np.shape(X))
     print("Shape of y =", np.shape(y))     

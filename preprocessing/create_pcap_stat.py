@@ -143,7 +143,7 @@ def sequence_create(data, filename, first_n_packets):
 			f.write('\n')
 
 #***********************************************************************************
-# This function is from the following paper:
+# Parts of this function borrowed from the following paper:
 #
 # Multi-Level identification Framework to Identify HTTPS Services
 # Author by Wazen Shbair,
