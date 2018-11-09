@@ -53,26 +53,30 @@ def data_load_and_filter(datasetfile, min_connections):
 
 X, y = data_load_and_filter("training/GCDay1seq.csv", 100)
 
-##### BASIC PARAMETERS ####
+# FOR NOW TRUNCATE SOME DATA SO ITS PROPERLY DIVISIBLE, WILL IMPLEMENT A BETTER APPROACH LATER
+X = X[:8192]
+y = y[:8192]
+
+##### BASIC PARAMETERS #####
 n_samples = np.shape(X)[0]
 time_steps = np.shape(X)[1] # we have a time series of 100 payload sizes
 n_features = 1 # 1 feature which is payload size
 seq_len = 100
-n_neurons = 50
 
 ##### CREATES MAPPING FROM SNI STRING TO INT #####
 class_map = {sni:i for i, sni in enumerate(np.unique(y))}
 rev_class_map = {val: key for key, val in class_map.items()}
 
 n_labels = len(class_map)
-print(n_labels)
 
 ##### CHANGE Y TO PD SO ITS EASIER TO MAP #####
 y_pd = pd.DataFrame(y)
 y_pd = y_pd[0].map(class_map)
 
+print(y_pd.head)
+
 ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
-y = y_pd.values.reshape(n_samples,1).repeat(time_steps, axis=1)
+y = y_pd.values.reshape(n_samples,)
 
 ##### CREATE A NEW SEQUENCE ARRAY OF 0s THAT ARE INTS #####
 sequences = np.zeros((len(X), seq_len), dtype=int)
@@ -87,49 +91,29 @@ X = sequences
 
 ##### RESHAPE FOR LSTM #####
 X = np.reshape(X, (n_samples, time_steps, n_features))
-# X = X.reshape(n_samples, time_steps, n_features)
-# y = y.reshape(n_samples, time_steps, n_features)
 
+print(y.shape)
 ##### TRAIN TEST SPLIT #####
-X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.1, random_state = 0)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.0625, random_state = 0)
 
+print(y_val)
 ##### BUILD LSTM MODEL #####
 model = Sequential()
 
-##### THIS ARCHITECTURE IS WRONG, NEED TO REDO #####
-##### NEED TO THINK ABOUT WHAT WE'RE BUILDING, WHICH LOSS FUNCTION, NUMBER OF LAYERS, INPUT, OUTPUT SIZE 
-model.add(LSTM( units=100, return_sequences=True))
-model.add(Dropout(0.2))
-model.add(LSTM(units = 59, return_sequences=False))
-model.add(Dropout(0.2))
-model.add(Dense(units=100))
-model.add(Activation("softmax"))
-model.compile(loss="mse", optimizer="rmsprop", metrics=['acc'])
-model.fit(X_train, y_train, epochs=8, batch_size=128, verbose=1)
+##### NEED TO SIT DOWN AND REDESIGN ARCHITECTURE FOR FURTHER IMPROVEMENT #####
+
+model = Sequential()
+model.add(LSTM(128, return_sequences=True, stateful=True,batch_input_shape=
+(32, time_steps, n_features)))
+model.add(LSTM(128, return_sequences=True, stateful=True))
+model.add(LSTM(128, stateful=True))
+model.add(Dense(59, activation='softmax'))
+model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
+model.fit(X_train, y_train, epochs=8, batch_size=32, verbose=1, shuffle=False,validation_data=(X_val, y_val))
 
 predicted = model.predict(X_val)
-predicted = np.reshape(predicted, (predicted.size,))
-predicted = predicted.astype(int)
 
-print('predicted: ', predicted.round(0))
-print('actual: ', y_val.T[0])
-
-##### CODE BELOW IS JUNK AS WELL BUT HELPS FOR CHECKING #####
-accuracy = 0
-
-print(y_val.T[0,0], type(y_val.T[0]), len(predicted), len(y_val.T[0]))
-for i in range(len(y_val.T[0])):
-    print(predicted[i],y_val.T[0,i])
-    if predicted[i] == y_val.T[0,i]:
-        accuracy += 1
-
-print(len(predicted), len(y_val.T[0]))
-accuracy = accuracy / len(predicted)
-print(accuracy)
-
-predicted_pd = pd.DataFrame(predicted.round(0))
-
-
-predicted_pd = predicted_pd[0].map(rev_class_map)
+#### OBVIOUSLY THE ACTUAL PREDICTED IS THE NEURON WITH THE LARGEST VALUE #####
+print('predicted: ', np.argmax(predicted, axis = 1))
 
 
