@@ -3,7 +3,7 @@ from keras.preprocessing import text, sequence
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
 from keras.models import Model, Input, Sequential
-from keras.layers import GRU, LSTM, Embedding, Dense, TimeDistributed, Bidirectional, Activation
+from keras.layers import GRU, LSTM, Embedding, Dense, TimeDistributed, Bidirectional, Activation, Dropout
 from sklearn.model_selection import train_test_split
 from keras.metrics import categorical_accuracy
 from keras import backend as K
@@ -86,12 +86,50 @@ for i, row in enumerate(X):
 X = sequences
 
 ##### RESHAPE FOR LSTM #####
-X = X.reshape(n_samples, time_steps, n_features)
-y = y.reshape(n_samples, time_steps, n_features)
+X = np.reshape(X, (n_samples, time_steps, n_features))
+# X = X.reshape(n_samples, time_steps, n_features)
+# y = y.reshape(n_samples, time_steps, n_features)
 
 ##### TRAIN TEST SPLIT #####
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.1, random_state = 0)
 
 ##### BUILD LSTM MODEL #####
 model = Sequential()
+
+##### THIS ARCHITECTURE IS WRONG, NEED TO REDO #####
+##### NEED TO THINK ABOUT WHAT WE'RE BUILDING, WHICH LOSS FUNCTION, NUMBER OF LAYERS, INPUT, OUTPUT SIZE 
+model.add(LSTM( units=100, return_sequences=True))
+model.add(Dropout(0.2))
+model.add(LSTM(units = 59, return_sequences=False))
+model.add(Dropout(0.2))
+model.add(Dense(units=100))
+model.add(Activation("softmax"))
+model.compile(loss="mse", optimizer="rmsprop", metrics=['acc'])
+model.fit(X_train, y_train, epochs=8, batch_size=128, verbose=1)
+
+predicted = model.predict(X_val)
+predicted = np.reshape(predicted, (predicted.size,))
+predicted = predicted.astype(int)
+
+print('predicted: ', predicted.round(0))
+print('actual: ', y_val.T[0])
+
+##### CODE BELOW IS JUNK AS WELL BUT HELPS FOR CHECKING #####
+accuracy = 0
+
+print(y_val.T[0,0], type(y_val.T[0]), len(predicted), len(y_val.T[0]))
+for i in range(len(y_val.T[0])):
+    print(predicted[i],y_val.T[0,i])
+    if predicted[i] == y_val.T[0,i]:
+        accuracy += 1
+
+print(len(predicted), len(y_val.T[0]))
+accuracy = accuracy / len(predicted)
+print(accuracy)
+
+predicted_pd = pd.DataFrame(predicted.round(0))
+
+
+predicted_pd = predicted_pd[0].map(rev_class_map)
+
 
