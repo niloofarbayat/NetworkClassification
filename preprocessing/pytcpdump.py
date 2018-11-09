@@ -1,3 +1,10 @@
+#***********************************************************************************
+# replicating what tcpdump terminal command does in python using appropriate filters
+# For instance filters for https handshake packets and based on handshake packets gets the sni
+#***********************************************************************************
+
+
+
 import subprocess, struct, time, select, threading, os, sys, traceback, itertools, math, collections
 from ctypes import *
 from pytcpdump_utils import *
