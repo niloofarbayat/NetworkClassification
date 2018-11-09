@@ -3,7 +3,7 @@ from keras.preprocessing import text, sequence
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
 from keras.models import Model, Input, Sequential
-from keras.layers import GRU, LSTM, Embedding, Dense, TimeDistributed, Bidirectional, Activation
+from keras.layers import GRU, LSTM, Embedding, Dense, TimeDistributed, Bidirectional, Activation, Dropout
 from sklearn.model_selection import train_test_split
 from keras.metrics import categorical_accuracy
 from keras import backend as K
@@ -53,26 +53,30 @@ def data_load_and_filter(datasetfile, min_connections):
 
 X, y = data_load_and_filter("training/GCDay1seq.csv", 100)
 
-##### BASIC PARAMETERS ####
+# FOR NOW TRUNCATE SOME DATA SO ITS PROPERLY DIVISIBLE, WILL IMPLEMENT A BETTER APPROACH LATER
+X = X[:8192]
+y = y[:8192]
+
+##### BASIC PARAMETERS #####
 n_samples = np.shape(X)[0]
 time_steps = np.shape(X)[1] # we have a time series of 100 payload sizes
 n_features = 1 # 1 feature which is payload size
 seq_len = 100
-n_neurons = 50
 
 ##### CREATES MAPPING FROM SNI STRING TO INT #####
 class_map = {sni:i for i, sni in enumerate(np.unique(y))}
 rev_class_map = {val: key for key, val in class_map.items()}
 
 n_labels = len(class_map)
-print(n_labels)
 
 ##### CHANGE Y TO PD SO ITS EASIER TO MAP #####
 y_pd = pd.DataFrame(y)
 y_pd = y_pd[0].map(class_map)
 
+print(y_pd.head)
+
 ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
-y = y_pd.values.reshape(n_samples,1).repeat(time_steps, axis=1)
+y = y_pd.values.reshape(n_samples,)
 
 ##### CREATE A NEW SEQUENCE ARRAY OF 0s THAT ARE INTS #####
 sequences = np.zeros((len(X), seq_len), dtype=int)
@@ -86,13 +90,30 @@ for i, row in enumerate(X):
 X = sequences
 
 ##### RESHAPE FOR LSTM #####
-X = X.reshape(n_samples, time_steps, n_features)
-y = y.reshape(n_samples, time_steps, n_features)
+X = np.reshape(X, (n_samples, time_steps, n_features))
 
+print(y.shape)
 ##### TRAIN TEST SPLIT #####
-X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.1, random_state = 0)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.0625, random_state = 0)
 
+print(y_val)
 ##### BUILD LSTM MODEL #####
 model = Sequential()
+
+##### NEED TO SIT DOWN AND REDESIGN ARCHITECTURE FOR FURTHER IMPROVEMENT #####
+
+model = Sequential()
+model.add(LSTM(128, return_sequences=True, stateful=True,batch_input_shape=
+(32, time_steps, n_features)))
+model.add(LSTM(128, return_sequences=True, stateful=True))
+model.add(LSTM(128, stateful=True))
+model.add(Dense(59, activation='softmax'))
+model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
+model.fit(X_train, y_train, epochs=8, batch_size=32, verbose=1, shuffle=False,validation_data=(X_val, y_val))
+
+predicted = model.predict(X_val)
+
+#### OBVIOUSLY THE ACTUAL PREDICTED IS THE NEURON WITH THE LARGEST VALUE #####
+print('predicted: ', np.argmax(predicted, axis = 1))
 
 
