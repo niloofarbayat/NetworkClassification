@@ -140,7 +140,7 @@ def MultiLevelClassification(datasetfile, flimit):
 #
 # SNi modification for the sub-domain parts only
 #***********************************************************************************
-def FlatClassification(datasetfile, min_connections):
+def MLClassification(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:42] for z in dataset])
     y = np.array([z[0] for z in dataset])
@@ -175,5 +175,5 @@ def FlatClassification(datasetfile, min_connections):
         print( accuracy_score(l1,y_test))
 
 if __name__ == "__main__":
-    FlatClassification("training/GCDay1stats.csv", 100)
+    MLClassification("training/GCDay1stats.csv", 100)
     #MultiLevelClassification("training/GCDay1stats.csv",42)
