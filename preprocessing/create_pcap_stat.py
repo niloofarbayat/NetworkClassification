@@ -130,7 +130,7 @@ def sequence_create(data, filename, first_n_packets):
 			arrival2=combine_at(item[2][1], item[3][1])
 			
 			# Sort all packets by arrival times to get sequence in correct order
-			seq = zip(arrival1 + arrival2, list(item[5][0]) + list(item[5][1]))
+			seq = zip(arrival1 + arrival2, list(item[4][0]) + list(item[4][1]))
 			seq = [str(x) for _,x in sorted(seq)]
 
 			# Zero padding for sequences that are too short
