@@ -173,13 +173,13 @@ def SNIModificationbyone(sni):
 # 3. output file for sequence features
 #***********************************************************************************
 if __name__ == "__main__":
-	pcap_file = ['../pcaps/GCDay1.pcap']
+	pcap_file = ['../pcaps/GCDay1SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq.csv'
+	output_file_seqs = '../DL/training/GCDay1seq100.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)
 		print (fname,"finished, kept",len(pytcpdump.cache.cache),'records')
 
-	stat_create(pytcpdump.cache.cache, output_file_stats)
+	#stat_create(pytcpdump.cache.cache, output_file_stats)
 	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=100)
