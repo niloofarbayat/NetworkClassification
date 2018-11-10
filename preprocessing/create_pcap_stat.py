@@ -135,7 +135,7 @@ def sequence_create(data, filename, first_n_packets):
 
 			# Zero padding for sequences that are too short
 			if len(seq) < first_n_packets:
-				seq = seq + [str(0)]*(first_n_packets - len(seq))
+				seq = [str(0)]*(first_n_packets - len(seq)) + seq
 
 			line+=seq[0:first_n_packets]
 			line= ','.join(line)
@@ -175,11 +175,11 @@ def SNIModificationbyone(sni):
 if __name__ == "__main__":
 	pcap_file = ['../pcaps/GCDay1SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq100FrontPadded.csv'
+	output_file_seqs = '../DL/training/GCDay1seq100.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)
 		print (fname,"finished, kept",len(pytcpdump.cache.cache),'records')
 
-	#stat_create(pytcpdump.cache.cache, output_file_stats)
+	stat_create(pytcpdump.cache.cache, output_file_stats)
 	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=100)

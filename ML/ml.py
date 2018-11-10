@@ -172,9 +172,6 @@ def MultiLevelClassification(datasetfile, flimit):
 def MLClassification(datasetfile, min_connections):
     X, y = data_load_and_filter(datasetfile, min_connections)
 
-    print("Filtered shape of X =", np.shape(X))
-    print("Filtered shape of y =", np.shape(y))     
-
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     kf = KFold(n_splits=10, shuffle=True)
 
