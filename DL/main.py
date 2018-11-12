@@ -11,6 +11,9 @@ import tensorflow as tf
 from keras import optimizers
 import pandas as pd
 from keras.utils.np_utils import to_categorical
+from sklearn.model_selection import KFold
+from keras.callbacks import History
+import matplotlib.pyplot as plt
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -51,69 +54,93 @@ def data_load_and_filter(datasetfile, min_connections):
 ##### USE FIRST 100 SEQ AND WE DON'T DROP COLUMNS   #####
 #########################################################
 
-X, y = data_load_and_filter("training/GCDay1seq.csv", 100)
+def DLClassification(datasetfile, min_connections):
+    X, y = data_load_and_filter(datasetfile, min_connections)
 
-# FOR NOW TRUNCATE SOME DATA SO ITS PROPERLY DIVISIBLE, WILL IMPLEMENT A BETTER APPROACH LATER
-X = X[:8192]
-y = y[:8192]
+    ##### BASIC PARAMETERS #####
+    n_samples = np.shape(X)[0]
+    time_steps = np.shape(X)[1] # we have a time series of 100 payload sizes
+    n_features = 1 # 1 feature which is packet size
+    seq_len = 100
 
-##### BASIC PARAMETERS #####
-n_samples = np.shape(X)[0]
-time_steps = np.shape(X)[1] # we have a time series of 100 payload sizes
-n_features = 1 # 1 feature which is payload size
-seq_len = 100
+    ##### CREATES MAPPING FROM SNI STRING TO INT #####
+    class_map = {sni:i for i, sni in enumerate(np.unique(y))}
+    rev_class_map = {val: key for key, val in class_map.items()}
 
-##### CREATES MAPPING FROM SNI STRING TO INT #####
-class_map = {sni:i for i, sni in enumerate(np.unique(y))}
-rev_class_map = {val: key for key, val in class_map.items()}
+    n_labels = len(class_map)
 
-n_labels = len(class_map)
+    ##### CHANGE Y TO PD SO ITS EASIER TO MAP #####
+    y_pd = pd.DataFrame(y)
+    y_pd = y_pd[0].map(class_map)
 
-##### CHANGE Y TO PD SO ITS EASIER TO MAP #####
-y_pd = pd.DataFrame(y)
-y_pd = y_pd[0].map(class_map)
+    print(y_pd.head)
 
-print(y_pd.head)
+    ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
+    y = y_pd.values.reshape(n_samples,)
 
-##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
-y = y_pd.values.reshape(n_samples,)
+    ##### CREATE A NEW SEQUENCE ARRAY OF 0s THAT ARE INTS #####
+    sequences = np.zeros((len(X), seq_len), dtype=int)
+    
+    ##### COPY X_TRAIN INTO THE SEQUENCES BUT THIS TIME IT'LL ALL BE INTS #####
+    for i, row in enumerate(X):
+        line = np.array(row)
+        sequences[i, -len(row):] = line[-seq_len:]
 
-##### CREATE A NEW SEQUENCE ARRAY OF 0s THAT ARE INTS #####
-sequences = np.zeros((len(X), seq_len), dtype=int)
+    ##### REPLACE X_TRAIN WITH THE NEW INT ARRAY #####
+    X = sequences
 
-##### COPY X_TRAIN INTO THE SEQUENCES BUT THIS TIME IT'LL ALL BE INTS #####
-for i, row in enumerate(X):
-    line = np.array(row)
-    sequences[i, -len(row):] = line[-seq_len:]
+    ##### RESHAPE FOR LSTM #####
+    X = np.reshape(X, (n_samples, time_steps, n_features))
 
-##### REPLACE X_TRAIN WITH THE NEW INT ARRAY #####
-X = sequences
+    print(y.shape)
+    ##### TRAIN TEST SPLIT #####
 
-##### RESHAPE FOR LSTM #####
-X = np.reshape(X, (n_samples, time_steps, n_features))
+    BATCH_SIZE = 32
+    EPOCHS = 20
+    FOLDS = 10
 
-print(y.shape)
-##### TRAIN TEST SPLIT #####
-X_train, X_val, y_train, y_val = train_test_split(X, y, test_size = 0.0625, random_state = 0)
+    # FOR NOW TRUNCATE SOME DATA SO ITS PROPERLY DIVISIBLE SO WE CAN USE STATEFULNESS, WILL IMPLEMENT A BETTER APPROACH LATER
+    cutoff = BATCH_SIZE * FOLDS * int(len(X) / (BATCH_SIZE * FOLDS))
+    X = X[:cutoff]
+    y = y[:cutoff]
 
-print(y_val)
-##### BUILD LSTM MODEL #####
-model = Sequential()
+    kf = KFold(n_splits=FOLDS, shuffle=True)
+    total = 0
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
 
-##### NEED TO SIT DOWN AND REDESIGN ARCHITECTURE FOR FURTHER IMPROVEMENT #####
+        model = Sequential()
+        history = History()
 
-model = Sequential()
-model.add(LSTM(128, return_sequences=True, stateful=True,batch_input_shape=
-(32, time_steps, n_features)))
-model.add(LSTM(128, return_sequences=True, stateful=True))
-model.add(LSTM(128, stateful=True))
-model.add(Dense(59, activation='softmax'))
-model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
-model.fit(X_train, y_train, epochs=8, batch_size=32, verbose=1, shuffle=False,validation_data=(X_val, y_val))
+        model.add(LSTM(128, return_sequences=True, stateful=True, batch_input_shape=(BATCH_SIZE, time_steps, n_features)))
+        model.add(LSTM(128, return_sequences=True, stateful=True))
+        model.add(LSTM(128, stateful=True))
+        model.add(Dense(n_labels, activation='softmax'))
+        model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
+        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [history])
+        
+        accuracy = history.history['val_acc'][-1]
+        print("ACCURACY: ", accuracy)
+        total+= accuracy
 
-predicted = model.predict(X_val)
+    print("AVG: ", 1. * total / FOLDS)
+    return 1. * total / FOLDS
 
-#### OBVIOUSLY THE ACTUAL PREDICTED IS THE NEURON WITH THE LARGEST VALUE #####
-print('predicted: ', np.argmax(predicted, axis = 1))
+
+if __name__ == "__main__":
+    # run once w/min connections = 100 as in paper
+    DLClassification("training/GCDay1seq100.csv", 100)
+
+    # try a variety of min conn settings for graph
+    min_connections_to_try = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250]
+    accuracies = []
+    for min_connections in min_connections_to_try:
+        accuracies.append(DLClassification("training/GCDay1seq100.csv", min_connections))
+
+    plt.plot(min_connections_to_try, accuracies)
+    plt.xlabel("Mininimum Connections")
+    plt.ylabel("Accuracy")
+    plt.show()
 
 
