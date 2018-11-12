@@ -7,7 +7,7 @@ def isDomainChar(c):
 	return False
 
 #***********************************************************************************
-# Reverses connection id byte by byte
+# Reverses the format dst_ip+dport+src_ip+sport to src_ip+sport+dst_ip+dport
 #***********************************************************************************
 def conn_id_reverse(id):
 	return id[4:8] + id[0:4] + id[10:12] + id[8:10]
@@ -20,6 +20,8 @@ def isLocalAddress(s):
 
 #***********************************************************************************
 # Gets connection id
+# unify both direct (src_ip+sport+dst_ip+dport) and reverse (dst_ip+dport+src_ip+sport)
+# network traffic
 #***********************************************************************************
 def unify_conn_id(conn_id):
 	l = isLocalAddress(conn_id[0:4])
