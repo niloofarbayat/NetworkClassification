@@ -77,7 +77,7 @@ class Cache:
 				return ['unknown',[0,0],[[],[]],[[],[]],[[],[]],[[],[]]]
 
 #***********************************************************************************
-# Search for the SNI!
+# Search for the SNI in the encrypted payload!
 #***********************************************************************************
 def sni_pos(data):
 	pos=0
@@ -111,7 +111,11 @@ def sni_pos(data):
 		pos=pos2
 
 #***********************************************************************************
-# The meat and potatoes
+# The meat and potatoes: 
+# 1. Iterate through the pcap file
+# 2. Get connection id
+# 3. Add packet to connection id cache
+# 4. Search for hostname in encrypted payload
 #***********************************************************************************
 def process_file(filename):
 	global cache
@@ -132,7 +136,7 @@ def process_file(filename):
 			data =  bytes(f.read(pkt_hdr.len))
 			ip_pos = get_ip_pos(data) # IP layer
 			
-			# this never happens
+			# Invalid IP shouldn't happen, but just in case...
 			if ip_pos<0:
 				print("Invalid IP: ", ip_pos)
 				continue
@@ -140,7 +144,7 @@ def process_file(filename):
 			tcp_pos = ip_pos + ((ord(data[ip_pos:ip_pos+1]) & 0x0f)<<2)
 			ip_proto = ord(data[ip_pos+9:ip_pos+10])
 			
-			# must be tcp
+			# Must be TCP!
 			if ip_proto != 0x06: 
 				print("Skipping unexpected connection: ", ip_proto)
 				continue
