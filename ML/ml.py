@@ -46,18 +46,16 @@ def data_load_and_filter(datasetfile, min_connections):
     return X, y
 
 #***********************************************************************************
-# Flat Classification 
+# Flat Classification: SNi prediction using Random Forest Classifier
 #
-# This function borrowed from the following paper:
+# This function includes some code from the following paper:
 #
 # Multi-Level identification Framework to Identify HTTPS Services
 # Author by Wazen Shbair,
 # University of Lorraine,
 # France
 # wazen.shbair@gmail.com
-# January, 2017
-#
-# SNi prediction using Random Forest Classifier
+# January, 2017 
 #***********************************************************************************
 def MLClassification(datasetfile, min_connections):
     X, y = data_load_and_filter(datasetfile, min_connections)
