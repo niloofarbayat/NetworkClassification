@@ -54,15 +54,9 @@ def data_load_and_filter(datasetfile, min_connections):
 def create_model( BATCH_SIZE, time_steps, n_features, n_labels, hidden_size = 128, num_layers = 1):
     model = Sequential()
 
-    model.add(LSTM(hidden_size, return_sequences=True, stateful=True, batch_input_shape=(BATCH_SIZE, time_steps, n_features)))
-
-    for l in range(num_layers):
-        model.add(LSTM(hidden_size, return_sequences=True, stateful=True))
-    model.add(LSTM(hidden_size, stateful=True))
-    #model_uni.add(TimeDistributed(Dense(y_vocab_len)))
-
-    model.add(Dense(n_labels))
-    model.add(Activation('softmax'))
+    model.add(GRU(100+n_labels, return_sequences=True, batch_input_shape=(BATCH_SIZE, time_steps, n_features)))
+    model.add(GRU(100+n_labels))
+    model.add(Dense(n_labels, activation='softmax'))
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
 
