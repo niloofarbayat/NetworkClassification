@@ -24,6 +24,9 @@ def read_csv(file_path, has_header=True):
             data.append([x for x in line])
     return data
 
+####################################################
+# Filter for SNIs meeting min connection threshold
+####################################################
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:] for z in dataset])
@@ -50,15 +53,11 @@ def data_load_and_filter(datasetfile, min_connections):
     return X, y
 
 
-def create_model( BATCH_SIZE, time_steps, n_features, n_labels, hidden_size = 128, num_layers = 1):
+def create_model( BATCH_SIZE, time_steps, n_features, n_labels):
     model = Sequential()
-    history = History()
-
-    model.add(LSTM(hidden_size, return_sequences=True, stateful=True, batch_input_shape=(BATCH_SIZE, time_steps, n_features)))
-
-    for l in range(num_layers):
-        model.add(LSTM(hidden_size, return_sequences=True, stateful=True))
-
+    model.add(LSTM(128, return_sequences=True, batch_input_shape=(BATCH_SIZE, time_steps, n_features)))
+    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(128))        
     model.add(Dense(n_labels, activation='softmax'))
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
@@ -69,7 +68,6 @@ def create_model( BATCH_SIZE, time_steps, n_features, n_labels, hidden_size = 12
 ##### USE SAME MIN_CONN FILTER AS PAPER EXCEPT WE   #####
 ##### USE FIRST 100 SEQ AND WE DON'T DROP COLUMNS   #####
 #########################################################
-
 def DLClassification(datasetfile, min_connections):
     X, y = data_load_and_filter(datasetfile, min_connections)
 
@@ -89,8 +87,6 @@ def DLClassification(datasetfile, min_connections):
     y_pd = pd.DataFrame(y)
     y_pd = y_pd[0].map(class_map)
 
-    print(y_pd.head)
-
     ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
     y = y_pd.values.reshape(n_samples,)
 
@@ -108,17 +104,11 @@ def DLClassification(datasetfile, min_connections):
     ##### RESHAPE FOR LSTM #####
     X = np.reshape(X, (n_samples, time_steps, n_features))
 
-    print(y.shape)
-    ##### TRAIN TEST SPLIT #####
-
     BATCH_SIZE = 32
     EPOCHS = 20
     FOLDS = 10
 
-    # FOR NOW TRUNCATE SOME DATA SO ITS PROPERLY DIVISIBLE SO WE CAN USE STATEFULNESS, WILL IMPLEMENT A BETTER APPROACH LATER
-    cutoff = BATCH_SIZE * FOLDS * int(len(X) / (BATCH_SIZE * FOLDS))
-    X = X[:cutoff]
-    y = y[:cutoff]
+    print(np.shape(X), np.shape(y))
 
     kf = KFold(n_splits=FOLDS, shuffle=True)
     total = 0
@@ -126,9 +116,10 @@ def DLClassification(datasetfile, min_connections):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
-        model = create_model( BATCH_SIZE, time_steps, n_features, n_labels, hidden_size = 128, num_layers = 1)
+        history = History()
+        model = create_model( BATCH_SIZE, time_steps, n_features, n_labels)
         model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [history])
-        
+
         accuracy = history.history['val_acc'][-1]
         print("ACCURACY: ", accuracy)
         total+= accuracy
