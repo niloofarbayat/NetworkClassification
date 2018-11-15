@@ -130,7 +130,7 @@ def sequence_create(data, filename, first_n_packets):
 			arrival2=combine_at(item[2][1], item[3][1])
 			
 			# Sort all packets by arrival times to get sequence in correct order
-			seq = zip(arrival1 + arrival2, list(item[4][0]) + list(item[4][1]))
+			seq = zip(arrival1 + arrival2, list(item[4][0]) + list([-1 * x for x in item[4][1]]))
 			seq = [str(x) for _,x in sorted(seq)]
 
 			# Zero padding for sequences that are too short
@@ -175,11 +175,11 @@ def SNIModificationbyone(sni):
 if __name__ == "__main__":
 	pcap_file = ['../pcaps/GCDay1SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq100.csv'
+	output_file_seqs = '../DL/training/GCDay1seq100directional.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)
 		print (fname,"finished, kept",len(pytcpdump.cache.cache),'records')
 
-	stat_create(pytcpdump.cache.cache, output_file_stats)
+	#stat_create(pytcpdump.cache.cache, output_file_stats)
 	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=100)
