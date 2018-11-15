@@ -1,3 +1,6 @@
+# Random Forest versus autosklearn classifier
+#***********************************************************************************
+
 import numpy as np
 import sklearn.ensemble, sklearn.model_selection
 from sklearn.decomposition import PCA
@@ -6,6 +9,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score
+import autosklearn.classification
+import pandas
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -17,9 +22,9 @@ def read_csv(file_path, has_header=True):
     return data
 
 
-####################################################
+#***********************************************************************************
 # Filter for SNIs meeting min connection threshold
-####################################################
+#***********************************************************************************
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
     X = np.array([z[1:] for z in dataset])
@@ -41,8 +46,10 @@ def data_load_and_filter(datasetfile, min_connections):
     y = y[indices]
 
     print("Filtered shape of X =", np.shape(X))
-    print("Filtered shape of y =", np.shape(y))   
-
+    print("Filtered shape of y =", np.shape(y))
+    
+    #it's needed for auto_sklearn to work
+    X = X.astype(np.float)
     return X, y
 
 #***********************************************************************************
@@ -57,44 +64,63 @@ def data_load_and_filter(datasetfile, min_connections):
 # wazen.shbair@gmail.com
 # January, 2017 
 #***********************************************************************************
-def MLClassification(datasetfile, min_connections):
-    X, y = data_load_and_filter(datasetfile, min_connections)
-
+def MLClassification(X_train, X_test, y_train, y_test):
+    
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
-    kf = KFold(n_splits=10, shuffle=True)
-
-    total = 0
-    for train_index, test_index in kf.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-
-        rf.fit(X_train, y_train)
-        l1 = rf.predict(X_test)
-        accuracy = accuracy_score(l1,y_test)
-        print("ACCURACY: ", accuracy)
-        total+= accuracy
-
-    print("AVG: ", 1. * total / 10)
-    return 1. * total / 10
+    rf.fit(X_train, y_train)
+    predictions = rf.predict(X_test)
+    accuracy = accuracy_score(predictions,y_test)
+    return accuracy
 
 
+#***********************************************************************************
+# autosklearn classifier to find the best achievable accuracy
+#***********************************************************************************
+def auto_sklearn_classification(X_train, X_test, y_train, y_test):
+  cls = autosklearn.classification.AutoSklearnClassifier(time_left_for_this_task=300, per_run_time_limit=90, ml_memory_limit=10000)
+  cls.fit(X_train, y_train)
+  predictions = cls.predict(X_test)
+  accuracy = accuracy_score(predictions,y_test)
+  return accuracy
+  
 if __name__ == "__main__":
-
+    
+    folds = 10 
+    datasetfile = "training/GCDay1stats.csv"
     # run once
     #MLClassification("training/GCDay1stats.csv", 100)
 
     # for graph
     min_connections_to_try = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250]
     accuracies = []
+    
+    
+    kf = KFold(n_splits=folds, shuffle=True)
+    
     for min_connections in min_connections_to_try:
-        accuracies.append(MLClassification("training/GCDay1stats.csv", min_connections))
-
+        X, y = data_load_and_filter(datasetfile, min_connections)
+        total_rf, total_cls = 0, 0
+        for train_index, test_index in kf.split(X):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            rf_acc = MLClassification(X_train, X_test, y_train, y_test)
+            print("Random Forest ACCURACY: %s"%(rf_acc))
+            
+            cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
+            print("Auto sklearn Accuracy: %s "%(cls_acc))
+            
+            total_rf += rf_acc
+            total_cls += cls_acc
+            
+            
+        total_rf, total_cls = 1. * total_rf / folds, 1. * total_cls / folds
+        print("AVG RF: %s, AVF CLS: %s "%(total_rf, total_cls))
+  
+        accuracies.append([total_rf, total_cls])
+    '''
     plt.plot(min_connections_to_try, accuracies)
     plt.xlabel("Mininimum Connections")
     plt.ylabel("Accuracy")
     plt.show()
-
-
-
-
-
+    '''
+    print(accuracies)
