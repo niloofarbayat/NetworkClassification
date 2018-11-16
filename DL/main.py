@@ -141,12 +141,12 @@ if __name__ == "__main__":
     min_connections_to_try = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250]
 
     kf = KFold(n_splits=FOLDS, shuffle=True)
-    total_nn, total_cls = 0, 0
 
     # try a variety of min conn settings for graph
     accuracies = []
     for min_connections in min_connections_to_try:
         X, y, time_steps, n_features, n_labels = data_load_and_filter(datasetfile, min_connections)
+        total_nn, total_cls = 0, 0
         for train_index, test_index in kf.split(X):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
 
         total_nn, total_cls = 1. * total_nn / FOLDS, 1. * total_cls / FOLDS 
-        print("AVG Neural Net: %s, AVF CLS: %s "%(total_nn, total_cls))
+        print("AVG Neural Net: %s, AVG CLS: %s "%(total_nn, total_cls))
   
         accuracies.append([total_nn, total_cls])
 
