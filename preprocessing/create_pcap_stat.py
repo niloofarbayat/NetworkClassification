@@ -57,7 +57,7 @@ def stat_prepare_iat(t):
 #***********************************************************************************
 # Get statistical features from tcp packet sequences
 #***********************************************************************************
-def stat_create(data,filename):
+def stat_create(data,filename,first_n_packets):
 	with open(filename,'w') as f:
 		f.write(stat_head())
 		for id in data:
@@ -67,6 +67,10 @@ def stat_create(data,filename):
 
 			# exclude unknown domains
 			if sni == 'unknown' or sni == 'unknown.':
+				continue
+
+			#TODO: remove leading zeros when number of packets is above max seq length?
+			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
 				continue
 
 			line=[sni]
@@ -111,6 +115,7 @@ def sequence_create(data, filename, first_n_packets):
 	with open(filename,'w') as f:
 		f.write(sequence_head(first_n_packets))
 		counter = 0
+		skipped = 0
 		for id in data:
 			item=data[id]
 			sni=SNIModificationbyone(item[0])
@@ -121,8 +126,10 @@ def sequence_create(data, filename, first_n_packets):
 
 			#TODO: remove leading zeros when number of packets is above max seq length?
 			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
-				print("Too Many Packets: ", len(item[2][0]) + len(item[2][1]))
+				skipped = skipped + 1
+				continue
 
+			counter = counter + 1
 			line=[sni]
 
 			# Calculate arrival times in millis for local->remote and remote->local
@@ -130,17 +137,29 @@ def sequence_create(data, filename, first_n_packets):
 			arrival2=combine_at(item[2][1], item[3][1])
 			
 			# Sort all packets by arrival times to get sequence in correct order
-			seq = zip(arrival1 + arrival2, list(item[4][0]) + list([-1 * x for x in item[4][1]]))
-			seq = [str(x) for _,x in sorted(seq)]
+			packets = zip(arrival1 + arrival2, list(item[4][0]) + list(item[4][1]))
+			packets = [str(x) for _,x in sorted(packets)]
 
 			# Zero padding for sequences that are too short
-			if len(seq) < first_n_packets:
-				seq = [str(0)]*(first_n_packets - len(seq)) + seq
+			if len(packets) < first_n_packets:
+				packets = [str(0)]*(first_n_packets - len(packets)) + packets
 
-			line+=seq[0:first_n_packets]
+			line+=packets[0:first_n_packets]
+
+			# Sort all packets by arrival times to get sequence in correct order
+			payloads = zip(arrival1 + arrival2, list(item[5][0]) + list(item[5][1]))
+			payloads = [str(x) for _,x in sorted(payloads)]
+
+			# Zero padding for sequences that are too short
+			if len(payloads) < first_n_packets:
+				payloads = [str(0)]*(first_n_packets - len(payloads)) + payloads
+
+			line+=payloads[0:first_n_packets]
+
 			line= ','.join(line)
 			f.write(line)
 			f.write('\n')
+		print("Skipped percentage: ", 1. * skipped / counter)
 
 #***********************************************************************************
 # Parts of this function borrowed from the following paper:
@@ -173,13 +192,13 @@ def SNIModificationbyone(sni):
 # 3. output file for sequence features
 #***********************************************************************************
 if __name__ == "__main__":
-	pcap_file = ['../pcaps/GCDay1SSL.pcap']
+	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq100directional.csv'
+	output_file_seqs = '../DL/training/GCDay1seq100.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)
 		print (fname,"finished, kept",len(pytcpdump.cache.cache),'records')
 
-	#stat_create(pytcpdump.cache.cache, output_file_stats)
+	stat_create(pytcpdump.cache.cache, output_file_stats, first_n_packets=100)
 	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=100)

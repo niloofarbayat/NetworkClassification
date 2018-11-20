@@ -65,11 +65,27 @@ def data_load_and_filter(datasetfile, min_connections):
 # January, 2017 
 #***********************************************************************************
 def MLClassification(X_train, X_test, y_train, y_test):
-    
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     rf.fit(X_train, y_train)
     predictions = rf.predict(X_test)
     accuracy = accuracy_score(predictions,y_test)
+
+    class_map = {sni:i for i, sni in enumerate(np.unique(y_test))}
+    rev_class_map = {val: key for key, val in class_map.items()}
+    snis = np.unique(y_test)
+    
+    classes = []
+    accuracies = []
+    for sni in snis:
+        indices = np.where(y_test == sni)
+        correct = np.sum(predictions[indices] == y_test[indices])
+        print("ACCURACY: ", sni, class_map[sni], len(indices[0]), 1. * correct / len(indices[0]))
+        classes.append(class_map[sni])
+        accuracies.append(1. * correct / len(indices[0]))
+
+    plt.bar(classes, accuracies)
+    plt.show()
+
     return accuracy
 
 
@@ -85,15 +101,14 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
   
 if __name__ == "__main__":
     
-    folds = 10 
+    folds = 10
     datasetfile = "training/GCDay1stats.csv"
     # run once
     #MLClassification("training/GCDay1stats.csv", 100)
 
     # for graph
-    min_connections_to_try = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250]
+    min_connections_to_try = [100]
     accuracies = []
-    
     
     kf = KFold(n_splits=folds, shuffle=True)
     
@@ -105,12 +120,12 @@ if __name__ == "__main__":
             y_train, y_test = y[train_index], y[test_index]
             rf_acc = MLClassification(X_train, X_test, y_train, y_test)
             print("Random Forest ACCURACY: %s"%(rf_acc))
-            
-            cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
-            print("Auto sklearn Accuracy: %s "%(cls_acc))
+
+            #cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
+            #print("Auto sklearn Accuracy: %s "%(cls_acc))
             
             total_rf += rf_acc
-            total_cls += cls_acc
+            #total_cls += cls_acc
             
             
         total_rf, total_cls = 1. * total_rf / folds, 1. * total_cls / folds

@@ -17,12 +17,12 @@ from keras.callbacks import History
 import matplotlib.pyplot as plt
 #from attention_decoder import AttentionDecoder
 import autosklearn.classification
+from keras.layers import *
+from sklearn.preprocessing import MinMaxScaler
 
-
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 EPOCHS = 10
 FOLDS = 10   
-
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -38,7 +38,8 @@ def read_csv(file_path, has_header=True):
 ####################################################
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
-    X = np.array([z[1:] for z in dataset])
+    X = np.array([z[1:101] for z in dataset])
+
     y = np.array([z[0] for z in dataset])
     print("Shape of X =", np.shape(X))
     print("Shape of y =", np.shape(y))     
@@ -91,16 +92,15 @@ def data_load_and_filter(datasetfile, min_connections):
 
     ##### RESHAPE FOR LSTM #####
     #X = np.reshape(X, (n_samples, time_steps, n_features))
-    return X, y, time_steps, n_features, n_labels
-
-  
+    return X, y, time_steps, n_features, n_labels, rev_class_map
   
 def create_model(time_steps, n_features, n_labels):
     model = Sequential()
-
-    model.add(GRU(100+n_labels, return_sequences=True, input_shape=(time_steps, n_features)))
-    model.add(GRU(100+n_labels))
-    model.add(Dense(n_labels, activation='softmax'))
+    model.add(Conv1D(256, 3, activation='relu', input_shape=(time_steps, n_features)))
+    model.add(MaxPooling1D(2))
+    model.add(GRU(128, return_sequences=True))
+    model.add(GRU(128))
+    model.add(Dense(n_labels, activation='softmax')) 
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
 
@@ -110,7 +110,7 @@ def create_model(time_steps, n_features, n_labels):
 ###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
 #########################################################
 
-def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels):
+def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, rev_class_map):
     X_train = np.reshape(X_train, (np.shape(X_train)[0], np.shape(X_train)[1], n_features))
     X_test = np.reshape(X_test, (np.shape(X_test)[0], np.shape(X_test)[1], n_features))
 
@@ -118,8 +118,23 @@ def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_
 
     model = create_model(time_steps, n_features, n_labels)
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [history])
-
     accuracy = history.history['val_acc'][-1]
+
+    predictions = model.predict(X_test)
+    
+    classes = []
+    accuracies = []
+    snis = np.unique(y_test)
+    for sni in snis:
+        indices = np.where(y_test == sni)
+        correct = np.sum([np.argmax(x) for x in predictions[indices]] == y_test[indices])
+        print("ACCURACY: ", rev_class_map[sni], sni, len(indices[0]), 1. * correct / len(indices[0]))
+        classes.append(sni)
+        accuracies.append(1. * correct / len(indices[0]))
+
+    plt.bar(classes, accuracies)
+    plt.show()
+
     return accuracy
   
 #***********************************************************************************
@@ -138,27 +153,31 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
 if __name__ == "__main__":
     # run once w/min connections = 100 as in paper
     datasetfile = "training/GCDay1seq100.csv"
-    min_connections_to_try = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250]
+    min_connections_to_try = [100]
 
     kf = KFold(n_splits=FOLDS, shuffle=True)
 
     # try a variety of min conn settings for graph
     accuracies = []
     for min_connections in min_connections_to_try:
-        X, y, time_steps, n_features, n_labels = data_load_and_filter(datasetfile, min_connections)
+        X, y, time_steps, n_features, n_labels, rev_class_map = data_load_and_filter(datasetfile, min_connections)
+        scaler = MinMaxScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+
         total_nn, total_cls = 0, 0
         for train_index, test_index in kf.split(X):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
             
-            nn_acc = DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels)
+            nn_acc = DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, rev_class_map)
             print("Neural Net ACCURACY: %s"%(nn_acc))
             
-            cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
-            print("Auto sklearn Accuracy: %s "%(cls_acc))
+            #cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
+            #print("Auto sklearn Accuracy: %s "%(cls_acc))
             
             total_nn+= nn_acc
-            total_cls += cls_acc
+            #total_cls += cls_acc
 
 
         total_nn, total_cls = 1. * total_nn / FOLDS, 1. * total_cls / FOLDS 
