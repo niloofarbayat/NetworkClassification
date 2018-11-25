@@ -79,12 +79,13 @@ def MLClassification(X_train, X_test, y_train, y_test):
     for sni in snis:
         indices = np.where(y_test == sni)
         correct = np.sum(predictions[indices] == y_test[indices])
-        print("ACCURACY: ", sni, class_map[sni], len(indices[0]), 1. * correct / len(indices[0]))
         classes.append(class_map[sni])
         accuracies.append(1. * correct / len(indices[0]))
 
     plt.bar(classes, accuracies)
-    plt.show()
+    
+    # Uncomment to see SNI classification accuracies
+    # plt.show()
 
     return accuracy
 

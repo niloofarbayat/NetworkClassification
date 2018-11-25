@@ -3,6 +3,7 @@ import pytcpdump
 import re
 import tldextract
 import numpy as np
+import math
 
 #***********************************************************************************
 # Header for csv with statistical features
@@ -69,10 +70,6 @@ def stat_create(data,filename,first_n_packets):
 			if sni == 'unknown' or sni == 'unknown.':
 				continue
 
-			#TODO: remove leading zeros when number of packets is above max seq length?
-			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
-				continue
-
 			line=[sni]
 
 			# remote->local features
@@ -124,11 +121,6 @@ def sequence_create(data, filename, first_n_packets):
 			if sni == 'unknown' or sni == 'unknown.':
 				continue
 
-			#TODO: remove leading zeros when number of packets is above max seq length?
-			if len(item[2][0]) + len(item[2][1]) > first_n_packets:
-				skipped = skipped + 1
-				continue
-
 			counter = counter + 1
 			line=[sni]
 
@@ -146,7 +138,7 @@ def sequence_create(data, filename, first_n_packets):
 
 			line+=packets[0:first_n_packets]
 
-			# Sort all packets by arrival times to get sequence in correct order
+			# Sort all payloads by arrival times to get sequence in correct order
 			payloads = zip(arrival1 + arrival2, list(item[5][0]) + list(item[5][1]))
 			payloads = [str(x) for _,x in sorted(payloads)]
 
@@ -155,6 +147,17 @@ def sequence_create(data, filename, first_n_packets):
 				payloads = [str(0)]*(first_n_packets - len(payloads)) + payloads
 
 			line+=payloads[0:first_n_packets]
+
+			# Sort all packets by arrival times to get sequence in correct order
+			arrivals = sorted(arrival1 + arrival2)
+			iat = [str(0)] + [str(arrivals[i+1]-arrivals[i]) for i in range(len(arrivals)-1)]
+
+			# Zero padding for sequences that are too short
+			if len(iat) < first_n_packets:
+				iat = [str(0)]*(first_n_packets - len(iat)) + iat
+
+			line+=iat[0:first_n_packets]
+
 
 			line= ','.join(line)
 			f.write(line)
@@ -194,11 +197,11 @@ def SNIModificationbyone(sni):
 if __name__ == "__main__":
 	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq100.csv'
+	output_file_seqs = '../DL/training/GCDay1seq25.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)
 		print (fname,"finished, kept",len(pytcpdump.cache.cache),'records')
 
-	stat_create(pytcpdump.cache.cache, output_file_stats, first_n_packets=100)
-	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=100)
+	stat_create(pytcpdump.cache.cache, output_file_stats, first_n_packets=25)
+	sequence_create(pytcpdump.cache.cache, output_file_seqs, first_n_packets=25)
