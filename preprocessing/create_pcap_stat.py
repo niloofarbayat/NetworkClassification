@@ -118,10 +118,11 @@ def sequence_create(data, filename, first_n_packets):
 			sni=SNIModificationbyone(item[0])
 
 			# exclude unknown domains
+			counter = counter + 1
 			if sni == 'unknown' or sni == 'unknown.':
+				skipped = skipped + 1
 				continue
 
-			counter = counter + 1
 			line=[sni]
 
 			# Calculate arrival times in millis for local->remote and remote->local
@@ -195,7 +196,7 @@ def SNIModificationbyone(sni):
 # 3. output file for sequence features
 #***********************************************************************************
 if __name__ == "__main__":
-	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap']
+	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap','../pcaps/GCDay3SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
 	output_file_seqs = '../DL/training/GCDay1seq25.csv'
 	for fname in pcap_file:
