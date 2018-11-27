@@ -56,11 +56,11 @@ def data_load_and_filter(datasetfile, min_connections):
     X = X.astype(np.float)
     return X, y
 
+  
 #*********************************************************************************** 
 # function to save sklear report on precision and recall into a dictionary, 
 # considering the history of cross validation
 #***********************************************************************************
-
 def report2dict(report_str, old_report = None):
     # Parse rows
     report_list = list()
@@ -80,6 +80,7 @@ def report2dict(report_str, old_report = None):
             if old_report:
                 report_dict[sni][m.strip()]+=old_report[sni][m.strip()]
     return report_dict
+  
   
 #***********************************************************************************
 # Flat Classification: SNi prediction using Random Forest Classifier
@@ -140,7 +141,7 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
 if __name__ == "__main__":
     
     folds = 10
-    datasetfile = "drive/training/GCDay1stats.csv"
+    datasetfile = "training/GCDay1stats.csv"
     # run once
     #MLClassification("training/GCDay1stats.csv", 100)
 
@@ -173,7 +174,7 @@ if __name__ == "__main__":
   
         accuracies.append([total_rf, total_cls])
     
-        with open('precision.csv', 'a') as f:
+        with open('precision%s.csv'%(min_connections), 'a') as f:
             for sni in report:
                 precision = report[sni]['precision'] / folds
                 recall = report[sni]['recall'] / folds  
