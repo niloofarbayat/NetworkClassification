@@ -196,7 +196,10 @@ def SNIModificationbyone(sni):
 # 3. output file for sequence features
 #***********************************************************************************
 if __name__ == "__main__":
-	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap','../pcaps/GCDay3SSL.pcap']
+	pcap_file = ['../pcaps/GCDay1SSL.pcap', '../pcaps/GCDay2SSL.pcap','../pcaps/GCDay3SSL.pcap',
+	'../pcaps/GCDay4SSL.pcap','../pcaps/GCDay5SSL.pcap','../pcaps/GCDay6SSL.pcap',
+	'../pcaps/GCDay7SSL.pcap','../pcaps/GCDay8SSL.pcap','../pcaps/GCDay9SSL.pcap',
+	'../pcaps/GCDay10SSL.pcap','../pcaps/GCDay11SSL.pcap','../pcaps/GCDay12SSL.pcap']
 	output_file_stats = '../ML/training/GCDay1stats.csv'
 	output_file_seqs = '../DL/training/GCDay1seq25.csv'
 	for fname in pcap_file:

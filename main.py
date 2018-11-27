@@ -20,13 +20,14 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import Normalizer
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
+import csv
 
 BATCH_SIZE = 64
 EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
-NUM_ROWS = 50000 # just use first day for now, set to -1 for all data
-MIN_CONNECTIONS_LIST = [100]
+NUM_ROWS = -1 # just use first day for now, set to -1 for all data
+MIN_CONNECTIONS_LIST = [1000]
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -221,11 +222,9 @@ if __name__ == "__main__":
         for train_index, test_index in kf.split(X1):
             
             # Uncomment to just run once
-            """
             if total_nn1 > 0:
                 FOLDS = 1
                 continue
-			"""
 
             X1_train, X1_test = X1[train_index], X1[test_index]
             X2_train, X2_test = X2[train_index], X2[test_index]
@@ -297,5 +296,9 @@ if __name__ == "__main__":
     """
 
     print(accuracies)
-
+    with open('filename', 'wb') as file:
+        wr = csv.writer(file)
+        wr.writerow(["Random Forest","RNN Packet", "RNN Payload", "RNN IAT", "RNN Ensemble", "Ensemble All"])
+        for accuracy in accuracies:
+            wr.writerow(accuracy)
 
