@@ -103,8 +103,13 @@ def data_load_and_filter(datasetfile, min_connections):
     ##### RESHAPE FOR LSTM #####
     #X = np.reshape(X, (n_samples, time_steps, n_features))
     return X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map
-  
-def create_model(time_steps, n_features, n_labels):
+
+#########################################################
+###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
+#########################################################
+def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels):
+    # if you dont have newest keras version, you might have to remove restore_best_weights = True
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
     model.add(Conv1D(n_labels + 128, 3, activation='relu', input_shape=(time_steps, n_features)))
     model.add(BatchNormalization())
@@ -115,17 +120,6 @@ def create_model(time_steps, n_features, n_labels):
     model.add(Dense(n_labels, activation='softmax')) 
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
-
-    return model  
-
-#########################################################
-###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
-#########################################################
-
-def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels):
-    # if you dont have newest keras version, you might have to remove restore_best_weights = True
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
-    model = create_model(time_steps, n_features, n_labels)
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
     return model
   
@@ -143,7 +137,7 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
 
 
 if __name__ == "__main__":
-    datasetfile = "training/GCDay1seq25.csv"
+    datasetfile = "training/GCseq25.csv"
 
     # run w/min connections
     min_connections_to_try = [100]
@@ -155,13 +149,6 @@ if __name__ == "__main__":
     for min_connections in min_connections_to_try:
         X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map = data_load_and_filter(datasetfile, min_connections)
 
-        """
-        scaler = Normalizer()
-        scaler.fit(X1)
-        X1 = scaler.transform(X1)
-        scaler.fit(X2)
-        X2 = scaler.transform(X2)
-        """
         total_nn1, total_nn2, total_nn3, total_nn123, total_cls = 0, 0, 0, 0, 0
         for train_index, test_index in kf.split(X1):
             
@@ -206,41 +193,6 @@ if __name__ == "__main__":
             predictions123 = (predictions1 * (1.0/3) + predictions2 * (1.0/3) + predictions3 * (1.0/3))
             nn_acc123 = 1. * np.sum([np.argmax(x) for x in predictions123] == y_test) / len(y_test)
             print("Recurrent Neural Net Ensemble ACCURACY: %s"%(nn_acc123))
-
-            classes = []
-            accuracies1 = []
-            accuracies2 = []
-            accuracies3 = []
-            accuracies123 = []
-
-            snis = np.unique(y_test)
-            for sni in snis:
-                indices = np.where(y_test == sni)
-                correct1 = np.sum([np.argmax(x) for x in predictions1[indices]] == y_test[indices])
-                correct2 = np.sum([np.argmax(x) for x in predictions2[indices]] == y_test[indices])
-                correct3 = np.sum([np.argmax(x) for x in predictions3[indices]] == y_test[indices])
-                correct123 = np.sum([np.argmax(x) for x in predictions123[indices]] == y_test[indices])
-                classes.append(sni)
-                accuracies1.append(1. * correct1 / len(indices[0]))
-                accuracies2.append(1. * correct2 / len(indices[0]))
-                accuracies3.append(1. * correct3 / len(indices[0]))
-                accuracies123.append(1. * correct123 / len(indices[0]))
-
-            indices = np.arange(len(snis))
-            width = np.min(np.diff(indices)) / 6
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            ax.bar(indices-width-width,accuracies1,width,color='b')
-            ax.bar(indices-width,accuracies2,width,color='r')
-            ax.bar(indices,accuracies3,width,color='g')
-            ax.bar(indices+width,accuracies123,width,color='y')
-            ax.set_xlabel('SNIs')
-            ax.set_ylabel('Accuracy')
-
-            # Uncomment this for SNI classification accuracies image
-            plt.show()  
-
-
             
             total_nn1+= nn_acc1
             total_nn2+= nn_acc2
@@ -264,12 +216,6 @@ if __name__ == "__main__":
   
         accuracies.append([total_nn1, total_nn2, total_nn3, total_nn123, total_cls])
 
-    """
-    plt.plot(min_connections_to_try, accuracies)
-    plt.xlabel("Mininimum Connections")
-    plt.ylabel("Accuracy")
-    plt.show()
-    """
 
     print(accuracies)
 

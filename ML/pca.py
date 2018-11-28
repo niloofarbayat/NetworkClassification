@@ -17,7 +17,7 @@ def read_csv(file_path, has_header=True):
 			data.append([x for x in line])
 	return data
 
-filename = 'training/GCDay1stats.csv'
+filename = 'training/GCstats.csv'
 dataset=[]
 dataset+=read_csv(filename)
 

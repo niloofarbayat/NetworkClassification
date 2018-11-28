@@ -28,8 +28,8 @@ BATCH_SIZE = 64
 EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
-NUM_ROWS = -1 # just use first day for now, set to -1 for all data
-MIN_CONNECTIONS_LIST = [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100]
+NUM_ROWS = -1 # set to -1 for all data
+MIN_CONNECTIONS_LIST = [1000]
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -40,7 +40,7 @@ def read_csv(file_path, has_header=True):
             data.append([x for x in line])
     return data
 
-def ml_data_load_and_filter(datasetfile, min_connections):
+def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
     
     dataset = dataset[:NUM_ROWS]
@@ -70,43 +70,12 @@ def ml_data_load_and_filter(datasetfile, min_connections):
     X = X.astype(np.float)
     return X, y
 
-def dl_data_load_and_filter(datasetfile, min_connections):
-    dataset = read_csv(datasetfile)
-
-    # day one
-    dataset = dataset[:NUM_ROWS]
-
-    # packet sizes
-    X1 = np.array([z[1:SEQ_LEN + 1] for z in dataset])
-
-    # payload sizes
-    X2 = np.array([z[SEQ_LEN + 1:2*SEQ_LEN + 1] for z in dataset])
-
-    # inter-arrival times
-    X3 = np.array([z[2*SEQ_LEN + 1:3*SEQ_LEN + 1] for z in dataset])
-    X3 = X3.astype(float)
+def process_dl_features(X, y):
+    # packet, payload, IAT
+    X1 = X[:,:SEQ_LEN]
+    X2 = X[:,SEQ_LEN:2*SEQ_LEN]
+    X3 = X[:,2*SEQ_LEN:3*SEQ_LEN]
     X3[np.where(X3 != 0 )] = np.log(X3[np.where(X3 != 0 )])
-
-    y = np.array([z[0] for z in dataset])
-    print("Shape of X1 =", np.shape(X1))
-    print("Shape of X2 =", np.shape(X2))
-    print("Shape of X3 =", np.shape(X3))
-    print("Shape of y =", np.shape(y))     
-    
-    print("Entering filtering section, min connections =", min_connections)
-    snis, counts = np.unique(y, return_counts=True)
-    above_min_conns = list()
-
-    for i in range(len(counts)):
-        if counts[i] > min_connections:
-            above_min_conns.append(snis[i])
-
-    print("Filtering done. SNI classes remaining: ", len(above_min_conns))
-    indices = np.isin(y, above_min_conns)
-    X1 = X1[indices]
-    X2 = X2[indices]
-    X3 = X3[indices]
-    y = y[indices]
 
     print("Filtered shape of X1 =", np.shape(X1))
     print("Filtered shape of X2 =", np.shape(X2))
@@ -133,22 +102,43 @@ def dl_data_load_and_filter(datasetfile, min_connections):
 
     return X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map
 
+#########################################################
+# RANDOM FOREST FOR ML CLASSIFICATION
+#########################################################
+def MLClassification(X_train, X_test, y_train, y_test):
+    rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
+    rf.fit(X_train, y_train)
+    return rf
 
 #########################################################
-###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
+# BASELINE RNN FOR SEQUENCE CLASSIFICATION
 #########################################################
+def BaselineDLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels): 
+    # if you dont have newest keras version, you might have to remove restore_best_weights = True
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
+    model = Sequential()
+    model.add(GRU(100, return_sequences=True, input_shape=(time_steps, n_features)))
+    model.add(GRU(100, input_shape=(time_steps, n_features)))
+    model.add(Dense(n_labels, activation='softmax')) 
+    model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
+    model.summary()    
+    model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
+    return model
 
+#########################################################
+# BEST RNN FOR SEQUENCE CLASSIFICATION
+#########################################################
 def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, dropout):
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
-    model.add(Conv1D(n_labels + 128, 3, activation='relu', input_shape=(time_steps, n_features)))
+    model.add(Conv1D(200, 3, activation='relu', input_shape=(time_steps, n_features)))
     model.add(BatchNormalization())
-    model.add(Conv1D(n_labels + 256, 3, activation='relu'))
+    model.add(Conv1D(400, 3, activation='relu'))
     model.add(BatchNormalization())
-    model.add(GRU(n_labels + 100))
+    model.add(GRU(200))
     model.add(Dropout(dropout))
-    model.add(Dense(n_labels + 50, activation='sigmoid')) 
+    model.add(Dense(200, activation='sigmoid')) 
     model.add(Dropout(dropout))
     model.add(Dense(n_labels, activation='softmax')) 
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
@@ -156,63 +146,46 @@ def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
     return model
 
-def MLClassification(X_train, X_test, y_train, y_test):
-    rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
-    rf.fit(X_train, y_train)
-    return rf
-
-def BaselineDLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels): 
-    # if you dont have newest keras version, you might have to remove restore_best_weights = True
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
-    model = Sequential()
-    model.add(GRU(n_labels + 100, return_sequences=True, input_shape=(time_steps, n_features)))
-    model.add(GRU(n_labels + 100, input_shape=(time_steps, n_features)))
-    model.add(Dense(n_labels, activation='softmax')) 
-    model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
-    model.summary()    
-    model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
-    return model
-
-def get_classification_accuracies_image(predictions_rf, predictions1, predictions2, predictions3, predictions123, predictions_all):
+def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_all):
     classes = []
+    accuracies_rf = []
+    accuracies_bl = []
     accuracies1 = []
     accuracies2 = []
     accuracies3 = []
     accuracies123 = []
-    accuracies_rf = []
     accuracies_all= []
 
     snis = np.unique(y_test)
     for sni in snis:
         indices = np.where(y_test == sni)
+        correct_rf = np.sum([np.argmax(x) for x in predictions_rf[indices]] == y_test[indices])
+        correct_bl = np.sum([np.argmax(x) for x in predictions_bl[indices]] == y_test[indices])
         correct1 = np.sum([np.argmax(x) for x in predictions1[indices]] == y_test[indices])
         correct2 = np.sum([np.argmax(x) for x in predictions2[indices]] == y_test[indices])
         correct3 = np.sum([np.argmax(x) for x in predictions3[indices]] == y_test[indices])
         correct123 = np.sum([np.argmax(x) for x in predictions123[indices]] == y_test[indices])
-        correct_rf = np.sum([np.argmax(x) for x in predictions_rf[indices]] == y_test[indices])
         correct_all = np.sum([np.argmax(x) for x in predictions_all[indices]] == y_test[indices])
 
-        classes.append(sni)
+        classes.append(rev_class_map[sni])
+        accuracies_rf.append(1. * correct_rf / len(indices[0]))
+        accuracies_bl.append(1. * correct_bl / len(indices[0]))
         accuracies1.append(1. * correct1 / len(indices[0]))
         accuracies2.append(1. * correct2 / len(indices[0]))
         accuracies3.append(1. * correct3 / len(indices[0]))
         accuracies123.append(1. * correct123 / len(indices[0]))
-        accuracies_rf.append(1. * correct_rf / len(indices[0]))
         accuracies_all.append(1. * correct_all / len(indices[0]))
 
-    indices = np.arange(len(snis))
-    width = np.min(np.diff(indices)) / 10
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.bar(indices-width-width,accuracies1,width,color='b')
-    ax.bar(indices-width,accuracies2,width,color='r')
-    ax.bar(indices,accuracies3,width,color='g')
-    ax.bar(indices+width,accuracies123,width,color='y')
-    ax.bar(indices+width+width,accuracies_rf,width,color='m')
-    ax.bar(indices+width+width+width,accuracies_all,width,color='c')
-    ax.set_xlabel('SNIs')
-    ax.set_ylabel('Accuracy')
-    plt.show()
+    with open('class_results.csv', 'w') as file:
+        wr = csv.writer(file)
+        wr.writerow([' '] + classes)
+        wr.writerow(['Random Forest'] + accuracies_rf)
+        wr.writerow(['Baseline RNN'] + accuracies_bl)
+        wr.writerow(['Packet RNN'] + accuracies1)
+        wr.writerow(['Payload RNN'] + accuracies2)
+        wr.writerow(['IAT RNN'] + accuracies3)
+        wr.writerow(['Ensemble RNN'] + accuracies123)
+        wr.writerow(['Ensemble RF + RNN'] + accuracies_all)
 
 #*********************************************************************************** 
 # function to save sklear report on precision and recall into a dictionary, 
@@ -240,14 +213,15 @@ if __name__ == "__main__":
     # try a variety of min conn settings for model
     statistics = [["model", "min connections", "accuracy", "precision", "recall", "f1_score"]]
     for min_connections in MIN_CONNECTIONS_LIST:
-        datasetfile = "DL/training/GCDay1seq25.csv"
-        X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map = dl_data_load_and_filter(datasetfile, min_connections)
+        datasetfile = "DL/training/GCseq25.csv"
+        X, y = data_load_and_filter(datasetfile, min_connections)
+        X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map = process_dl_features(X, y)
 
-        datasetfile = "ML/training/GCDay1stats.csv"
-        X, _ = ml_data_load_and_filter(datasetfile, min_connections)
+        datasetfile = "ML/training/GCstats.csv"
+        X, _ = data_load_and_filter(datasetfile, min_connections)
 
         stats = {}
-        for model in ["Random Forest", "Baseline RNN", "Packet RNN", "Payload RNN", "IAT RNN", "Ensemble RNN", "Ensemble All"]:
+        for model in ["Random Forest", "Baseline RNN", "Packet RNN", "Payload RNN", "IAT RNN", "Ensemble RNN", "Ensemble RF + RNN"]:
             stats[model] = [0,0,0,0]
 
         for train_index, test_index in kf.split(X1):
@@ -296,10 +270,10 @@ if __name__ == "__main__":
             print("Recurrent Neural Net Ensemble ACCURACY: %s"%(stats["Ensemble RNN"][0]))
 
             predictions_all = (predictions_rf * 0.5 + predictions123 * 0.5)
-            stats = update_stats(stats, "Ensemble All", predictions_all, y_test)
-            print("Ensemble All ACCURACY: %s"%(stats["Ensemble All"][0]))
+            stats = update_stats(stats, "Ensemble RF + RNN", predictions_all, y_test)
+            print("Ensemble RF + RNN ACCURACY: %s"%(stats["Ensemble RF + RNN"][0]))
 
-            # get_classification_accuracies_image(predictions_rf, predictions1, predictions2, predictions3, predictions123, predictions_all)
+            #output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_all)
 
             #Uncomment to run once
             FOLDS = 1
@@ -307,11 +281,10 @@ if __name__ == "__main__":
 
         for model, stats in stats.items():
             statistics.append([model, min_connections] + [1. * x / FOLDS for x in stats])
-
-        print(statistics)
-
+        
         with open('final_results.csv', 'a') as file:
             wr = csv.writer(file)
             for statistic in statistics:
                 wr.writerow(statistic)
             statistics = []
+        

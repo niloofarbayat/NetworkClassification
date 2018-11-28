@@ -31,6 +31,8 @@ def read_csv(file_path, has_header=True):
 #***********************************************************************************
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
+    dataset = dataset[:50000]
+
     X = np.array([z[1:] for z in dataset])
     y = np.array([z[0] for z in dataset])
     print("Shape of X =", np.shape(X))
@@ -54,34 +56,8 @@ def data_load_and_filter(datasetfile, min_connections):
     
     #it's needed for auto_sklearn to work
     X = X.astype(np.float)
-    return X, y
+    return X, y  
 
-  
-#*********************************************************************************** 
-# function to save sklear report on precision and recall into a dictionary, 
-# considering the history of cross validation
-#***********************************************************************************
-def report2dict(report_str, old_report = None):
-    # Parse rows
-    report_list = list()
-    for row in report_str.split("\n"):
-        parsed_row = [x for x in row.split("  ") if len(x) > 0]
-        if len(parsed_row) > 0:
-            report_list.append(parsed_row)
-    
-    # Store in dictionary
-    measures = report_list[0]
-
-    report_dict = defaultdict(dict)
-    for row in report_list[1:]:
-        sni = row[0]
-        for j, m in enumerate(measures):
-            report_dict[sni][m.strip()] = float(row[j + 1].strip()) 
-            if old_report:
-                report_dict[sni][m.strip()]+=old_report[sni][m.strip()]
-    return report_dict
-  
-  
 #***********************************************************************************
 # Flat Classification: SNi prediction using Random Forest Classifier
 #
@@ -94,12 +70,13 @@ def report2dict(report_str, old_report = None):
 # wazen.shbair@gmail.com
 # January, 2017 
 #***********************************************************************************
-def MLClassification(X_train, X_test, y_train, y_test, old_report= None):
+def MLClassification(X_train, X_test, y_train, y_test):
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     rf.fit(X_train, y_train)
     predictions = rf.predict(X_test)
     accuracy = accuracy_score(predictions,y_test)
 
+    """
     class_map = {sni:i for i, sni in enumerate(np.unique(y_test))}
     rev_class_map = {val: key for key, val in class_map.items()}
     snis = np.unique(y_test)
@@ -113,19 +90,19 @@ def MLClassification(X_train, X_test, y_train, y_test, old_report= None):
         accuracies.append(1. * correct / len(indices[0]))
 
     plt.bar(classes, accuracies)
-    
-    '''
-    with open('drive/precision.csv', 'a') as f:
-        writer = csv.writer(f)
-        writer.writerows(classification_report(y_test, predictions, target_names=snis))
-    '''
+    """
 
-    report = report2dict(classification_report(y_test, predictions, target_names=snis),old_report )
+    report = []
+    report_str = classification_report(y_test, predictions)
+    for row in report_str.split("\n"):
+        parsed_row = [x for x in row.split("  ") if len(x) > 0]
+        if len(parsed_row) > 0:
+            report.append(parsed_row)
     
-    # Uncomment to see SNI classification accuracies
-    # plt.show()
-    
-    return accuracy, report
+    precision = float(report[-1][1])
+    recall = float(report[-1][2])
+    f1_score = float(report[-1][3])
+    return accuracy, precision, recall, f1_score
 
 
 #***********************************************************************************
@@ -141,51 +118,44 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
 if __name__ == "__main__":
     
     folds = 10
-    datasetfile = "training/GCDay1stats.csv"
+    datasetfile = "training/GCstats.csv"
     # run once
-    #MLClassification("training/GCDay1stats.csv", 100)
+    #MLClassification("training/GCstats.csv", 100)
 
     # for graph
     min_connections_to_try = [100]
-    accuracies = []
     
     kf = KFold(n_splits=folds, shuffle=True)
     for min_connections in min_connections_to_try:
         X, y = data_load_and_filter(datasetfile, min_connections)
-        total_rf, total_cls = 0, 0
-        report = None
+        total_rf, total_cls = [0,0,0,0], [0,0,0,0]
 
         for train_index, test_index in kf.split(X):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
-            rf_acc, report = MLClassification(X_train, X_test, y_train, y_test,report )
-            print("Random Forest ACCURACY: %s"%(rf_acc))
+            accuracy, precision, recall, f1_score = MLClassification(X_train, X_test, y_train, y_test)
+            print("Random Forest ACCURACY: %s"%(accuracy))
+            total_rf[0] += accuracy
+            total_rf[1] += precision
+            total_rf[2] += recall
+            total_rf[3] += f1_score
 
+            """
+            accuracy, precision, recall, f1_score = auto_sklearn_classification(X_train, X_test, y_train, y_test)
+            print("Auto sklearn Accuracy: %s "%(cls_acc))
             
-            #cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
-            #print("Auto sklearn Accuracy: %s "%(cls_acc))
+            total_cls[0] += accuracy
+            total_cls[1] += precision
+            total_cls[2] += recall
+            total_cls[3] += f1_score
+            """
             
-            total_rf += rf_acc
-            #total_cls += cls_acc
-            
-            
-        total_rf, total_cls = 1. * total_rf / folds, 1. * total_cls / folds
-        print("AVG RF: %s, AVF CLS: %s "%(total_rf, total_cls))
-  
-        accuracies.append([total_rf, total_cls])
-    
+        print("AVG RF: %s, AVF CLS: %s "%(1. * total_rf[0] / folds, 1. * total_cls[0] / folds))
+      
         with open('precision%s.csv'%(min_connections), 'a') as f:
-            for sni in report:
-                precision = report[sni]['precision'] / folds
-                recall = report[sni]['recall'] / folds  
-                f1_score = report[sni]['f1-score'] / folds 
-                support = report[sni]['support'] / folds
-                writer = csv.writer(f)
-                writer.writerow([sni,precision,recall, f1_score,support])
-    '''
-    plt.plot(min_connections_to_try, accuracies)
-    plt.xlabel("Mininimum Connections")
-    plt.ylabel("Accuracy")
-    plt.show()
-    '''
-    print(accuracies)
+            accuracy = total_rf[0] / folds
+            precision = total_rf[1] / folds
+            recall = total_rf[2] / folds  
+            f1_score = total_rf[3] / folds 
+            writer = csv.writer(f)
+            writer.writerow([accuracy, precision, recall, f1_score])

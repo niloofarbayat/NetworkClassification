@@ -200,8 +200,8 @@ if __name__ == "__main__":
 	'../pcaps/GCDay4SSL.pcap','../pcaps/GCDay5SSL.pcap','../pcaps/GCDay6SSL.pcap',
 	'../pcaps/GCDay7SSL.pcap','../pcaps/GCDay8SSL.pcap','../pcaps/GCDay9SSL.pcap',
 	'../pcaps/GCDay10SSL.pcap','../pcaps/GCDay11SSL.pcap','../pcaps/GCDay12SSL.pcap']
-	output_file_stats = '../ML/training/GCDay1stats.csv'
-	output_file_seqs = '../DL/training/GCDay1seq25.csv'
+	output_file_stats = '../ML/training/GCstats.csv'
+	output_file_seqs = '../DL/training/GCseq25.csv'
 	for fname in pcap_file:
 		print ('process', fname)
 		pytcpdump.process_file(fname)

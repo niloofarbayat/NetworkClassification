@@ -1,1 +1,4 @@
 pcaps
+.*
+ML/training/*
+DL/training/*
