@@ -29,7 +29,7 @@ EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
 NUM_ROWS = -1 # set to -1 for all data
-MIN_CONNECTIONS_LIST = [1000]
+MIN_CONNECTIONS_LIST = [100]
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -71,21 +71,24 @@ def data_load_and_filter(datasetfile, min_connections):
     return X, y
 
 def process_dl_features(X, y):
-    # packet, payload, IAT
+    # packet, payload, IAT, direction
     X1 = X[:,:SEQ_LEN]
     X2 = X[:,SEQ_LEN:2*SEQ_LEN]
     X3 = X[:,2*SEQ_LEN:3*SEQ_LEN]
+    X4 = X[:,3*SEQ_LEN:4*SEQ_LEN]
+
     X3[np.where(X3 != 0 )] = np.log(X3[np.where(X3 != 0 )])
 
     print("Filtered shape of X1 =", np.shape(X1))
     print("Filtered shape of X2 =", np.shape(X2))
     print("Filtered shape of X3 =", np.shape(X3))
+    print("Filtered shape of X4 =", np.shape(X4))
     print("Filtered shape of y =", np.shape(y))   
 
     ##### BASIC PARAMETERS #####
     n_samples = np.shape(X1)[0]
     time_steps = np.shape(X1)[1] # we have a time series of 100 payload sizes
-    n_features = 1 # 1 feature which is packet size
+    n_features = 1
 
     ##### CREATES MAPPING FROM SNI STRING TO INT #####
     class_map = {sni:i for i, sni in enumerate(np.unique(y))}
@@ -100,7 +103,7 @@ def process_dl_features(X, y):
     ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
     y = y_pd.values.reshape(n_samples,)
 
-    return X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map
+    return X1, X2, X3, X4, y, time_steps, n_labels, n_features, rev_class_map
 
 #########################################################
 # RANDOM FOREST FOR ML CLASSIFICATION
@@ -181,11 +184,11 @@ def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predi
         wr.writerow([' '] + classes)
         wr.writerow(['Random Forest'] + accuracies_rf)
         wr.writerow(['Baseline RNN'] + accuracies_bl)
-        wr.writerow(['Packet RNN'] + accuracies1)
-        wr.writerow(['Payload RNN'] + accuracies2)
-        wr.writerow(['IAT RNN'] + accuracies3)
-        wr.writerow(['Ensemble RNN'] + accuracies123)
-        wr.writerow(['Ensemble RF + RNN'] + accuracies_all)
+        wr.writerow(['Packet CNN-RNN'] + accuracies1)
+        wr.writerow(['Payload CNN-RNN'] + accuracies2)
+        wr.writerow(['IAT CNN-RNN'] + accuracies3)
+        wr.writerow(['Ensemble CNN-RNN'] + accuracies123)
+        wr.writerow(['Ensemble RF + CNN-RNN'] + accuracies_all)
 
 #*********************************************************************************** 
 # function to save sklear report on precision and recall into a dictionary, 
@@ -215,28 +218,31 @@ if __name__ == "__main__":
     for min_connections in MIN_CONNECTIONS_LIST:
         datasetfile = "DL/training/GCseq25.csv"
         X, y = data_load_and_filter(datasetfile, min_connections)
-        X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map = process_dl_features(X, y)
+        X1, X2, X3, X4, y, time_steps, n_labels, n_features, rev_class_map = process_dl_features(X, y)
 
         datasetfile = "ML/training/GCstats.csv"
         X, _ = data_load_and_filter(datasetfile, min_connections)
 
         stats = {}
-        for model in ["Random Forest", "Baseline RNN", "Packet RNN", "Payload RNN", "IAT RNN", "Ensemble RNN", "Ensemble RF + RNN"]:
+        for model in ["Random Forest", "Baseline RNN", "Packet CNN-RNN", "Payload CNN-RNN", "IAT CNN-RNN", "Ensemble CNN-RNN", "Ensemble RF + CNN-RNN"]:
             stats[model] = [0,0,0,0]
 
         for train_index, test_index in kf.split(X1):
             
+            X_train, X_test = X[train_index], X[test_index]
             X1_train, X1_test = X1[train_index], X1[test_index]
             X2_train, X2_test = X2[train_index], X2[test_index]
             X3_train, X3_test = X3[train_index], X3[test_index]
-            X_train, X_test = X[train_index], X[test_index]
+            X4_train, X4_test = X4[train_index], X4[test_index]
 
-            X1_train = np.reshape(X1_train, (np.shape(X1_train)[0], np.shape(X1_train)[1], n_features))
-            X1_test = np.reshape(X1_test, (np.shape(X1_test)[0], np.shape(X1_test)[1], n_features))
-            X2_train = np.reshape(X2_train, (np.shape(X2_train)[0], np.shape(X2_train)[1], n_features))
-            X2_test = np.reshape(X2_test, (np.shape(X2_test)[0], np.shape(X2_test)[1], n_features))
-            X3_train = np.reshape(X3_train, (np.shape(X3_train)[0], np.shape(X3_train)[1], n_features))
-            X3_test = np.reshape(X3_test, (np.shape(X3_test)[0], np.shape(X3_test)[1], n_features))
+            X1_train = np.stack([X1_train], axis=2)
+            X1_test = np.stack([X1_test], axis=2)
+
+            X2_train = np.stack([X2_train], axis=2)
+            X2_test = np.stack([X2_test], axis=2)
+
+            X3_train = np.stack([X3_train], axis=2)
+            X3_test = np.stack([X3_test], axis=2)
 
             y_train, y_test = y[train_index], y[test_index]
             
@@ -252,26 +258,26 @@ if __name__ == "__main__":
 
             model1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
             predictions1 = model1.predict(X1_test)
-            stats = update_stats(stats, "Packet RNN", predictions1, y_test)
-            print("Recurrent Neural Net Packet ACCURACY: %s"%(stats["Packet RNN"][0]))
+            stats = update_stats(stats, "Packet CNN-RNN", predictions1, y_test)
+            print("Recurrent Neural Net Packet ACCURACY: %s"%(stats["Packet CNN-RNN"][0]))
 
             model2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
             predictions2 = model2.predict(X2_test)
-            stats = update_stats(stats, "Payload RNN", predictions2, y_test)
-            print("Recurrent Neural Net Payload ACCURACY: %s"%(stats["Payload RNN"][0]))
+            stats = update_stats(stats, "Payload CNN-RNN", predictions2, y_test)
+            print("Recurrent Neural Net Payload ACCURACY: %s"%(stats["Payload CNN-RNN"][0]))
 
             model3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, 0.25)
             predictions3 = model3.predict(X3_test)
-            stats = update_stats(stats, "IAT RNN", predictions3, y_test)
-            print("Recurrent Neural Net IAT ACCURACY: %s"%(stats["IAT RNN"][0]))
+            stats = update_stats(stats, "IAT CNN-RNN", predictions3, y_test)
+            print("Recurrent Neural Net IAT ACCURACY: %s"%(stats["IAT CNN-RNN"][0]))
 
             predictions123 = (predictions1 * (1.0/3) + predictions2 * (1.0/3) + predictions3 * (1.0/3))
             stats = update_stats(stats, "Ensemble RNN", predictions123, y_test)
-            print("Recurrent Neural Net Ensemble ACCURACY: %s"%(stats["Ensemble RNN"][0]))
+            print("Recurrent Neural Net Ensemble ACCURACY: %s"%(stats["Ensemble CNN-RNN"][0]))
 
             predictions_all = (predictions_rf * 0.5 + predictions123 * 0.5)
-            stats = update_stats(stats, "Ensemble RF + RNN", predictions_all, y_test)
-            print("Ensemble RF + RNN ACCURACY: %s"%(stats["Ensemble RF + RNN"][0]))
+            stats = update_stats(stats, "Ensemble RF + CNN-RNN", predictions_all, y_test)
+            print("Ensemble RF + CNN-RNN ACCURACY: %s"%(stats["Ensemble RF + CNN-RNN"][0]))
 
             #output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_all)
 

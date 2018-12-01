@@ -26,6 +26,7 @@ EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
 NUM_ROWS = 51554 # just use first day for now, set to -1 for all data
+MIN_CONNECTIONS_LIST = [100]
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -55,11 +56,15 @@ def data_load_and_filter(datasetfile, min_connections):
     X3 = np.array([z[2*SEQ_LEN + 1:3*SEQ_LEN + 1] for z in dataset])
     X3 = X3.astype(float)
     X3[np.where(X3 != 0 )] = np.log(X3[np.where(X3 != 0 )])
+    
+    # direction
+    X4 = np.array([z[3*SEQ_LEN + 1:4*SEQ_LEN + 1] for z in dataset])
 
     y = np.array([z[0] for z in dataset])
     print("Shape of X1 =", np.shape(X1))
     print("Shape of X2 =", np.shape(X2))
     print("Shape of X3 =", np.shape(X3))
+    print("Shape of X4 =", np.shape(X4))
     print("Shape of y =", np.shape(y))     
     
     print("Entering filtering section! ")
@@ -75,11 +80,13 @@ def data_load_and_filter(datasetfile, min_connections):
     X1 = X1[indices]
     X2 = X2[indices]
     X3 = X3[indices]
+    X4 = X4[indices]
     y = y[indices]
 
     print("Filtered shape of X1 =", np.shape(X1))
     print("Filtered shape of X2 =", np.shape(X2))
     print("Filtered shape of X3 =", np.shape(X3))
+    print("Filtered shape of X4 =", np.shape(X4))
     print("Filtered shape of y =", np.shape(y))   
 
     ##### BASIC PARAMETERS #####
@@ -102,21 +109,23 @@ def data_load_and_filter(datasetfile, min_connections):
 
     ##### RESHAPE FOR LSTM #####
     #X = np.reshape(X, (n_samples, time_steps, n_features))
-    return X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map
+    return X1, X2, X3, X4, y, time_steps, n_features, n_labels, rev_class_map
 
 #########################################################
 ###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
 #########################################################
-def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels):
+def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, dropout):
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
-    model.add(Conv1D(n_labels + 128, 3, activation='relu', input_shape=(time_steps, n_features)))
+    model.add(Conv1D(200, 3, activation='relu', input_shape=(time_steps, n_features)))
     model.add(BatchNormalization())
-    model.add(Conv1D(n_labels + 256, 3, activation='relu'))
+    model.add(Conv1D(400, 3, activation='relu'))
     model.add(BatchNormalization())
-    model.add(GRU(n_labels + 100))
-    model.add(Dense(n_labels + 50, activation='sigmoid')) 
+    model.add(GRU(200))
+    model.add(Dropout(dropout))
+    model.add(Dense(200, activation='sigmoid')) 
+    model.add(Dropout(dropout))
     model.add(Dense(n_labels, activation='softmax')) 
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
@@ -139,17 +148,16 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
 if __name__ == "__main__":
     datasetfile = "training/GCseq25.csv"
 
-    # run w/min connections
-    min_connections_to_try = [100]
-
     kf = KFold(n_splits=FOLDS, shuffle=True)
 
     # try a variety of min conn settings for graph
     accuracies = []
-    for min_connections in min_connections_to_try:
-        X1, X2, X3, y, time_steps, n_features, n_labels, rev_class_map = data_load_and_filter(datasetfile, min_connections)
+    for min_connections in MIN_CONNECTIONS_LIST:
+        X1, X2, X3, X4, y, time_steps, n_features, n_labels, rev_class_map = data_load_and_filter(datasetfile, min_connections)
 
         total_nn1, total_nn2, total_nn3, total_nn123, total_cls = 0, 0, 0, 0, 0
+        total_nn1_1, total_nn2_1, total_nn3_1, total_nn123_1 = 0, 0, 0, 0
+
         for train_index, test_index in kf.split(X1):
             
             # Uncomment to just run once
@@ -162,21 +170,24 @@ if __name__ == "__main__":
             X1_train, X1_test = X1[train_index], X1[test_index]
             X2_train, X2_test = X2[train_index], X2[test_index]
             X3_train, X3_test = X3[train_index], X3[test_index]
+            X4_train, X4_test = X4[train_index], X4[test_index]
 
-            X1_train = np.reshape(X1_train, (np.shape(X1_train)[0], np.shape(X1_train)[1], n_features))
-            X1_test = np.reshape(X1_test, (np.shape(X1_test)[0], np.shape(X1_test)[1], n_features))
-            X2_train = np.reshape(X2_train, (np.shape(X2_train)[0], np.shape(X2_train)[1], n_features))
-            X2_test = np.reshape(X2_test, (np.shape(X2_test)[0], np.shape(X2_test)[1], n_features))
-            X3_train = np.reshape(X3_train, (np.shape(X3_train)[0], np.shape(X3_train)[1], n_features))
-            X3_test = np.reshape(X3_test, (np.shape(X3_test)[0], np.shape(X3_test)[1], n_features))
+            X1_train = np.stack([X1_train], axis=2)
+            X1_test = np.stack([X1_test], axis=2)
+
+            X2_train = np.stack([X2_train], axis=2)
+            X2_test = np.stack([X2_test], axis=2)
+
+            X3_train = np.stack([X3_train], axis=2)
+            X3_test = np.stack([X3_test], axis=2)
 
             y_train, y_test = y[train_index], y[test_index]
-            
-            model1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels)
 
-            model2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels)
+            model1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
 
-            model3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels)
+            model2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
+
+            model3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, 0.25)
 
             predictions1 = model1.predict(X1_test)
             nn_acc1 = 1. * np.sum([np.argmax(x) for x in predictions1] == y_test) / len(y_test)
@@ -190,10 +201,6 @@ if __name__ == "__main__":
             nn_acc3 = 1. * np.sum([np.argmax(x) for x in predictions3] == y_test) / len(y_test)
             print("Recurrent Neural Net IAT ACCURACY: %s"%(nn_acc3))
 
-            predictions123 = (predictions1 * (1.0/3) + predictions2 * (1.0/3) + predictions3 * (1.0/3))
-            nn_acc123 = 1. * np.sum([np.argmax(x) for x in predictions123] == y_test) / len(y_test)
-            print("Recurrent Neural Net Ensemble ACCURACY: %s"%(nn_acc123))
-            
             total_nn1+= nn_acc1
             total_nn2+= nn_acc2
             total_nn3+= nn_acc3
@@ -212,8 +219,8 @@ if __name__ == "__main__":
         total_nn123 = 1. * total_nn123 / FOLDS
         total_cls = 1. * total_cls / FOLDS
 
-        print("AVG RNN Packet: %s\n AVG RNN Payload: %s\n AVG RNN IAT: %s\n AVG RNN Ensemble: %s\n AVG CLS: %s\n "%(total_nn1, total_nn2, total_nn3, total_nn123, total_cls))
-  
+        print("AVG CNN-RNN Packet: %s\n AVG CNN-RNN Payload: %s\n AVG CNN-RNN IAT: %s\n AVG CNN-RNN Ensemble: %s\n AVG CLS: %s\n "%(total_nn1, total_nn2, total_nn3, total_nn123, total_cls))
+
         accuracies.append([total_nn1, total_nn2, total_nn3, total_nn123, total_cls])
 
 

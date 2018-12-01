@@ -159,6 +159,15 @@ def sequence_create(data, filename, first_n_packets):
 
 			line+=iat[0:first_n_packets]
 
+			# Sort all directions by arrival times to get sequence in correct order
+			direction = zip(arrival1 + arrival2, [-1]*len(item[5][0]) + [1]*len(item[5][1]))
+			direction = [str(x) for _,x in sorted(direction)]
+
+			# Zero padding for direction sequences that are too short
+			if len(direction) < first_n_packets:
+				direction = [str(0)]*(first_n_packets - len(direction)) + direction
+
+			line+=direction[0:first_n_packets]
 
 			line= ','.join(line)
 			f.write(line)
