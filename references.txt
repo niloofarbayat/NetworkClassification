@@ -1,2 +1,207 @@
-https://paul.querna.org/articles/2005/04/24/tls-server-name-indication/
-https://en.wikipedia.org/wiki/Server_Name_Indication
+@inproceedings{shbair2016multi,
+  title={A multi-level framework to identify https services},
+  author={Shbair, W. M. and Cholez, T. and Francois, J. and Chrisment, I.},
+  booktitle={Network Operations and Management Symposium (NOMS), 2016 IEEE/IFIP},
+  pages={240--248},
+  year={2016},
+  organization={IEEE}
+}
+
+@article{nguyen2008survey,
+  title={A survey of techniques for internet traffic classification using machine learning},
+  author={Nguyen, T. T. and Armitage, G.},
+  journal={IEEE Communications Surveys \& Tutorials},
+  volume={10},
+  number={4},
+  pages={56--76},
+  year={2008},
+  publisher={IEEE}
+}
+
+@article{fadlullah2017state,
+  title={State-of-the-art deep learning: Evolving machine intelligence toward tomorrow’s intelligent network traffic control systems},
+  author={Fadlullah, Z. and Tang, F. and Mao, B. and Kato, N. and Akashi, O. and Inoue, T. and Mizutani, K.},
+  journal={IEEE Communications Surveys \& Tutorials},
+  volume={19},
+  number={4},
+  pages={2432--2455},
+  year={2017},
+  publisher={IEEE}
+}
+
+@misc{kolton2011system,
+  title={System to enable detecting attacks within encrypted traffic},
+  author={Kolton, D. and Stav, A. and Wexler, A. and Frydman, A. E. and Zahavi, Y.},
+  year={2011},
+  month=feb # "~22",
+  publisher={Google Patents},
+  note={US Patent 7,895,652}
+}
+
+@misc{SNI,
+title={Transport layer security (TLS) extensions: Extension
+definitions (RFC 6066)},
+author={D. Eastlake},
+year={2011}
+}
+
+@misc{TMG,
+title={Configuring HTTPS inspection with forefront threat
+management gateway (TMG)},
+author={R. Hicks},
+howpublished = {http://techgenix.com/Configuring-HTTPS-Inspection-Forefront-Threat-Management-Gateway-TMG-2010/}
+}
+
+@article{Moore:2005:ITC:1071690.1064220,
+ author = {Moore, Andrew W. and Zuev, Denis},
+ title = {Internet Traffic Classification Using Bayesian Analysis Techniques},
+ journal = {SIGMETRICS Perform. Eval. Rev.},
+ issue_date = {June 2005},
+ volume = {33},
+ number = {1},
+ month = jun,
+ year = {2005},
+ issn = {0163-5999},
+ pages = {50--60},
+ numpages = {11},
+ url = {http://doi.acm.org/10.1145/1071690.1064220},
+ doi = {10.1145/1071690.1064220},
+ acmid = {1064220},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {flow classification, internet traffic, traffic identification},
+} 
+
+@INPROCEEDINGS{6147705, 
+author={Y. Okada and S. Ata and N. Nakamura and Y. Nakahira and I. Oka}, 
+booktitle={2011 10th International Conference on Machine Learning and Applications and Workshops}, 
+title={Comparisons of Machine Learning Algorithms for Application Identification of Encrypted Traffic}, 
+year={2011}, 
+volume={2}, 
+number={}, 
+pages={358-361}, 
+keywords={Bayes methods;computer network management;computer network security;cryptography;decision trees;learning (artificial intelligence);support vector machines;machine learning algorithms;application identification;traffic encryption;network operators;network management;bandwidth control;traffic security;encrypted packets;estimated features method;EFM;support vector machine;Naive Bayes Kernel Estimation;decision tree;Encryption;Accuracy;Support vector machines;Training data;Monitoring;Machine learning algorithms}, 
+doi={10.1109/ICMLA.2011.162}, 
+ISSN={}, 
+month={Dec},}
+
+@misc{alexa,
+title={The top 500 sites on the web},
+year={2018},
+howpublished = {\url{https://www.alexa.com/topsites}}
+}
+
+@inproceedings{chen2010side,
+  title={Side-channel leaks in web applications: A reality today, a challenge tomorrow},
+  author={Chen, Shuo and Wang, Rui and Wang, XiaoFeng and Zhang, Kehuan},
+  booktitle={2010 IEEE Symposium on Security and Privacy},
+  pages={191--206},
+  year={2010},
+  organization={IEEE}
+}
+
+@inproceedings{shbair2015efficiently,
+  title={Efficiently bypassing SNI-based HTTPS filtering},
+  author={Shbair, Wazen M and Cholez, Thibault and Goichot, Antoine and Chrisment, Isabelle},
+  booktitle={Integrated Network Management (IM), 2015 IFIP/IEEE International Symposium on},
+  pages={990--995},
+  year={2015},
+  organization={IEEE}
+}
+
+
+@misc{ESNI,
+title={ESNI: A Privacy-Protecting Upgrade to HTTPS},
+author={SETH SCHOEN},
+howpublished = {\url{https://www.eff.org/deeplinks/2018/09/esni-privacy-protecting-upgrade-https}},
+journal = {EFF DeepLinks Blog},
+year={2018}
+}
+
+@misc{domain-fronting,
+title={Don't panic about domain fronting, an SNI fix is getting hacked out},
+author={ Thomas Claburn},
+howpublished = {\url{https://www.theregister.co.uk/2018/07/17/encrypted_server_names/}},
+journal = {The Register},
+year={2018}
+}
+
+@misc{shbair2016,
+author = {Wazen Shbair, Thibault Cholez, Jerome Francois, Isabelle Chrisment},
+title = {HTTPS Websites Dataset},
+howpublished={\url{4 http://betternet.lhs.loria.fr/datasets/https/}},
+year = {2016}
+}
+
+@INPROCEEDINGS{5356534, 
+author={R. Alshammari and A. N. Zincir-Heywood}, 
+booktitle={2009 IEEE Symposium on Computational Intelligence for Security and Defense Applications}, 
+title={Machine learning based encrypted traffic classification: Identifying SSH and Skype}, 
+year={2009}, 
+volume={}, 
+number={}, 
+pages={1-8}, 
+keywords={cryptography;learning (artificial intelligence);support vector machines;telecommunication traffic;machine learning;encrypted traffic classification;secure shell;Skype;traffic classification;adaboost;support vector machine;Nai¿e Bayesian;RIPPER;flow based features;C4.5 based approach;Machine learning;Cryptography;Telecommunication traffic;Traffic control;Payloads;Bayesian methods;Robustness;Support vector machines;Support vector machine classification;Financial management},
+doi={10.1109/CISDA.2009.5356534}, 
+ISSN={2329-6267}, 
+month={July},}
+
+
+@misc{rfc5246,
+author = {T. Dierks},
+title = {The transport layer security (TLS) protocol version 1.2 (RFC
+5246)},
+howpublished={\url{https://tools.ietf.org/html/rfc5246}},
+year = {2008}
+}
+
+
+@inproceedings{naylor2014cost,
+  title={The cost of the S in HTTPS},
+  author={Naylor, David and Finamore, Alessandro and Leontiadis, Ilias and Grunenberger, Yan and Mellia, Marco and Munaf{\`o}, Maurizio and Papagiannaki, Konstantina and Steenkiste, Peter},
+  booktitle={Proceedings of the 10th ACM International on Conference on emerging Networking Experiments and Technologies},
+  pages={133--140},
+  year={2014},
+  organization={ACM}
+}
+
+@misc{man-in-middle,
+author = {Tanmay Patange},
+title = {THow to defend yourself against MITM or Man-in-the-middle attack},
+howpublished={\url{https://hackerspace.kinja.com/how-to-defend-yourself-against-mitm-or-man-in-the-middl-1461796382}},
+year = {2013}
+}
+
+
+@incollection{NIPS2015_5872,
+   title = {Efficient and Robust Automated Machine Learning},
+   author = {Feurer, Matthias and Klein, Aaron and Eggensperger, Katharina and
+             Springenberg, Jost and Blum, Manuel and Hutter, Frank},
+   booktitle = {Advances in Neural Information Processing Systems 28},
+   editor = {C. Cortes and N. D. Lawrence and D. D. Lee and M. Sugiyama and R. Garnett},
+   pages = {2962--2970},
+   year = {2015},
+   publisher = {Curran Associates, Inc.},
+   url = {http://papers.nips.cc/paper/5872-efficient-and-robust-automated-machine-learning.pdf}
+}
+
+@ARTICLE{8026581, 
+author={M. Lopez-Martin and B. Carro and A. Sanchez-Esguevillas and J. Lloret}, 
+journal={IEEE Access}, 
+title={Network Traffic Classifier With Convolutional and Recurrent Neural Networks for Internet of Things}, 
+year={2017}, 
+volume={5}, 
+number={}, 
+pages={18042-18050}, 
+keywords={Internet of Things;learning (artificial intelligence);recurrent neural nets;telecommunication computing;telecommunication traffic;network traffic classifier;convolutional networks;recurrent neural networks;NTC;current network monitoring systems;network service;communication flow;current network flow;traffic volume;heterogeneous devices;IoT traffic;convolutional neural network;Internet of Things networks;CNN;deep learning models;Ports (Computers);Telecommunication traffic;Feature extraction;Recurrent neural networks;Machine learning;Payloads;Biological neural networks;Convolutional neural network;deep learning;network traffic classification;recurrent neural network}, 
+doi={10.1109/ACCESS.2017.2747560}, 
+ISSN={2169-3536}, 
+month={},}
+
+@inproceedings{krizhevsky2012imagenet,
+  title={Imagenet classification with deep convolutional neural networks},
+  author={Krizhevsky, Alex and Sutskever, Ilya and Hinton, Geoffrey E},
+  booktitle={Advances in neural information processing systems},
+  pages={1097--1105},
+  year={2012}
+}
