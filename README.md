@@ -46,7 +46,7 @@ Stores the following attributes for each connection in a cache:
 Utility functions for pytcpdump. Includes functions for parsing connection id, ip position, etc.
 
 ### ML
-ML Folder contains ml.py, which runs Random Forest classification on statistical features from
+ML Folder contains `ml.py`, which runs Random Forest classification on statistical features from
 the TCP handshake. High level summary can be broken down below:
 
 1. Read CSV (`training/GCstats.csv`) of the packet/payload/inter-arrival time statistical features.
