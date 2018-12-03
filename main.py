@@ -28,7 +28,7 @@ EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
 NUM_ROWS = -1 # set to -1 for all data
-MIN_CONNECTIONS_LIST = [2000] # try a variety of min conn settings for model
+MIN_CONNECTIONS_LIST = [100] # try a variety of min conn settings for model
 
 #########################################################
 # RANDOM FOREST FOR ML CLASSIFICATION

@@ -25,8 +25,8 @@ BATCH_SIZE = 64
 EPOCHS = 100 # use early stopping
 FOLDS = 10
 SEQ_LEN = 25
-NUM_ROWS = 51554 # just use first day for now, set to -1 for all data
-MIN_CONNECTIONS_LIST = [500]
+NUM_ROWS = -1 # just use first day for now, set to -1 for all data
+MIN_CONNECTIONS_LIST = [100]
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:

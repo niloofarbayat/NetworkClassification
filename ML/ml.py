@@ -17,7 +17,7 @@ from collections import defaultdict
 
 MIN_CONNECTIONS_LIST = [100]
 FOLDS = 10
-NUM_ROWS = 50000 # set to -1 for all data
+NUM_ROWS = -1 # set to -1 for all data
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
