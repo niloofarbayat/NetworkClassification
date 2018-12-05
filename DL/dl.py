@@ -43,7 +43,7 @@ def read_csv(file_path, has_header=True):
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
 
-    # day one
+    # Use first n rows
     dataset = dataset[:NUM_ROWS]
 
     # packet sizes
@@ -67,7 +67,7 @@ def data_load_and_filter(datasetfile, min_connections):
     print("Shape of X4 =", np.shape(X4))
     print("Shape of y =", np.shape(y))     
     
-    print("Entering filtering section! ")
+    print("Entering min connections filter section! ")
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
 
@@ -107,14 +107,15 @@ def data_load_and_filter(datasetfile, min_connections):
     ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
     y = y_pd.values.reshape(n_samples,)
 
-    ##### RESHAPE FOR LSTM #####
-    #X = np.reshape(X, (n_samples, time_steps, n_features))
     return X1, X2, X3, X4, y, time_steps, n_features, n_labels, rev_class_map
 
 #########################################################
 ###### USE RNN TO CLASSIFY PACKET SEQUENCES -> SNI ######
 #########################################################
 def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, dropout):
+    X_train = np.stack([X_train], axis=2)
+    X_test = np.stack([X_test], axis=2)
+
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min')
     model = Sequential()
@@ -130,7 +131,7 @@ def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
-    return model
+    return model.predict(X_test)
   
 #***********************************************************************************
 # autosklearn classifier to find the best achievable accuracy
@@ -156,8 +157,6 @@ if __name__ == "__main__":
         X1, X2, X3, X4, y, time_steps, n_features, n_labels, rev_class_map = data_load_and_filter(datasetfile, min_connections)
 
         total_nn1, total_nn2, total_nn3, total_nn123, total_cls = 0, 0, 0, 0, 0
-        total_nn1_1, total_nn2_1, total_nn3_1, total_nn123_1 = 0, 0, 0, 0
-
         for train_index, test_index in kf.split(X1):
 
             X1_train, X1_test = X1[train_index], X1[test_index] # Packet sizes
@@ -167,35 +166,23 @@ if __name__ == "__main__":
             # Directional features not used!
             # X4_train, X4_test = X4[train_index], X4[test_index]
 
-            X1_train = np.stack([X1_train], axis=2)
-            X1_test = np.stack([X1_test], axis=2)
-
-            X2_train = np.stack([X2_train], axis=2)
-            X2_test = np.stack([X2_test], axis=2)
-
-            X3_train = np.stack([X3_train], axis=2)
-            X3_test = np.stack([X3_test], axis=2)
-
             y_train, y_test = y[train_index], y[test_index]
 
             # CNN-RNN for Packet Size
-            model1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
+            predictions1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
 
             # CNN-RNN for Payload Size
-            model2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
+            predictions2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
 
             # CNN-RNN for Inter-Arrival times
-            model3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, 0.25)
+            predictions3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.25)
 
-            predictions1 = model1.predict(X1_test)
             nn_acc1 = 1. * np.sum([np.argmax(x) for x in predictions1] == y_test) / len(y_test)
             print("CNN-RNN Packet ACCURACY: %s"%(nn_acc1))
 
-            predictions2 = model2.predict(X2_test)
             nn_acc2 = 1. * np.sum([np.argmax(x) for x in predictions2] == y_test) / len(y_test)
             print("CNN-RNN Payload ACCURACY: %s"%(nn_acc2))
 
-            predictions3 = model3.predict(X3_test)
             nn_acc3 = 1. * np.sum([np.argmax(x) for x in predictions3] == y_test) / len(y_test)
             print("CNN-RNN IAT ACCURACY: %s"%(nn_acc3))
 
@@ -210,15 +197,13 @@ if __name__ == "__main__":
             total_nn123+= nn_acc123
             
             # Uncomment for auto sklearn results on sequence features
-            """
-            cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
-            print("Auto sklearn Accuracy: %s "%(cls_acc))
-            total_cls += cls_acc
-            """
+            # cls_acc = auto_sklearn_classification(X_train, X_test, y_train, y_test)
+            # print("Auto sklearn Accuracy: %s "%(cls_acc))
+            # total_cls += cls_acc
 
             # Uncomment to run once
-            FOLDS = 1
-            break
+            # FOLDS = 1
+            # break
 
         total_nn1 = 1. * total_nn1 / FOLDS
         total_nn2 = 1. * total_nn2 / FOLDS
@@ -229,7 +214,6 @@ if __name__ == "__main__":
         print("AVG CNN-RNN Packet: %s\n AVG CNN-RNN Payload: %s\n AVG CNN-RNN IAT: %s\n AVG CNN-RNN Ensemble: %s\n AVG CLS: %s\n "%(total_nn1, total_nn2, total_nn3, total_nn123, total_cls))
 
         accuracies.append([total_nn1, total_nn2, total_nn3, total_nn123, total_cls])
-
 
     print(accuracies)
 

@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report
 #*********************************************************************************** 
 # Utility function to write accuracies per class to a CSV, for a variety of classifiers
 #***********************************************************************************
-def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_all):
+def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_best):
     classes = []
     accuracies_rf = []
     accuracies_bl = []
@@ -25,7 +25,7 @@ def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predi
         correct2 = np.sum([np.argmax(x) for x in predictions2[indices]] == y_test[indices])
         correct3 = np.sum([np.argmax(x) for x in predictions3[indices]] == y_test[indices])
         correct123 = np.sum([np.argmax(x) for x in predictions123[indices]] == y_test[indices])
-        correct_all = np.sum([np.argmax(x) for x in predictions_all[indices]] == y_test[indices])
+        correct_all = np.sum([np.argmax(x) for x in predictions_best[indices]] == y_test[indices])
 
         classes.append(rev_class_map[sni])
         accuracies_rf.append(1. * correct_rf / len(indices[0]))
@@ -63,6 +63,7 @@ def read_csv(file_path, has_header=True):
 def data_load_and_filter(datasetfile, min_connections, NUM_ROWS=-1):
     dataset = read_csv(datasetfile)
     
+    # Use first n rows if necessary
     dataset = dataset[:NUM_ROWS]
 
     X = np.array([z[1:] for z in dataset])
@@ -70,7 +71,7 @@ def data_load_and_filter(datasetfile, min_connections, NUM_ROWS=-1):
     print("Shape of X =", np.shape(X))
     print("Shape of y =", np.shape(y))     
     
-    print("Entering filtering section! ")
+    print("Entering min connections filter section! ")
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
 
@@ -147,7 +148,8 @@ def update_stats(stats, model, predictions, y_test):
         if len(parsed_row) > 0:
             report_list.append(parsed_row)
 
-    stats[model][0] += float(1. * np.sum([np.argmax(x) for x in predictions] == y_test) / len(y_test))
+    # save accuracy, precision, recall, F1-Score to dictionary
+    stats[model][0] += float(1. * np.sum([np.argmax(x) for x in predictions] == y_test) / len(y_test)) 
     stats[model][1] += float(report_list[-1][1])
     stats[model][2] += float(report_list[-1][2])
     stats[model][3] += float(report_list[-1][3])

@@ -36,12 +36,16 @@ MIN_CONNECTIONS_LIST = [100] # try a variety of min conn settings for model
 def MLClassification(X_train, X_test, y_train, y_test):
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     rf.fit(X_train, y_train)
-    return rf
+    return rf.predict_proba(X_test)
 
 #########################################################
 # BASELINE RNN FOR SEQUENCE CLASSIFICATION
 #########################################################
 def BaselineDLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels): 
+    # Create 3D input arrays (batch_size, time_steps, n_features = 1)
+    X_train = np.stack([X_train], axis=2)
+    X_test = np.stack([X_test], axis=2)
+
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
@@ -51,12 +55,16 @@ def BaselineDLClassification(X_train, X_test, y_train, y_test,time_steps, n_feat
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()    
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
-    return model
+    return model.predict(X_test)
 
 #########################################################
 # BEST CNN-RNN FOR SEQUENCE CLASSIFICATION
 #########################################################
-def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels, dropout):
+def DLClassification(X_train, X_test, y_train, y_test, time_steps, n_features, n_labels, dropout):
+    # Create 3D input arrays (batch_size, time_steps, n_features = 1)
+    X_train = np.stack([X_train], axis=2)
+    X_test = np.stack([X_test], axis=2)
+
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
@@ -72,7 +80,7 @@ def DLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
-    return model
+    return model.predict(X_test)
 
 if __name__ == "__main__":
     kf = KFold(n_splits=FOLDS, shuffle=True)
@@ -95,69 +103,66 @@ if __name__ == "__main__":
         # Perform 10-Fold Cross Validation
         for train_index, test_index in kf.split(X1):
             
+            # Statistical features
             X_train, X_test = X[train_index], X[test_index]
+
+            # Packet features
             X1_train, X1_test = X1[train_index], X1[test_index]
+
+            # Payload features
             X2_train, X2_test = X2[train_index], X2[test_index]
+
+            # Inter-Arrival Time features
             X3_train, X3_test = X3[train_index], X3[test_index]
 
-            # directional features gave no improvement
+            # Directional features gave no improvement
             # X4_train, X4_test = X4[train_index], X4[test_index] 
 
-            # Create 3D input arrays (batch_size, time_steps, n_features = 1)
-            X1_train = np.stack([X1_train], axis=2)
-            X1_test = np.stack([X1_test], axis=2)
-            X2_train = np.stack([X2_train], axis=2)
-            X2_test = np.stack([X2_test], axis=2)
-            X3_train = np.stack([X3_train], axis=2)
-            X3_test = np.stack([X3_test], axis=2)
-
+            # Labels
             y_train, y_test = y[train_index], y[test_index]
             
             # Random Forest classifier
-            rf = MLClassification(X_train, X_test, y_train, y_test)
-            predictions_rf = rf.predict_proba(X_test)
+            predictions_rf = MLClassification(X_train, X_test, y_train, y_test)
             stats = update_stats(stats, "Random Forest", predictions_rf, y_test)
             print("Random Forest ACCURACY: %s"%(stats["Random Forest"][0]))
 
             # Baseline RNN classifier
-            model_bl = BaselineDLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels)
-            predictions_bl = model_bl.predict(X1_test)
+            predictions_bl = BaselineDLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels)
             stats = update_stats(stats, "Baseline RNN", predictions_bl, y_test)
             print("Baseline RNN Packet ACCURACY: %s"%(stats["Baseline RNN"][0]))
 
             # CNN-RNN classifier trained on packet sizes
-            model1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
-            predictions1 = model1.predict(X1_test)
+            predictions1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
             stats = update_stats(stats, "Packet CNN-RNN", predictions1, y_test)
             print("CNN-RNN Packet ACCURACY: %s"%(stats["Packet CNN-RNN"][0]))
 
             # CNN-RNN classifier trained on payload sizes
-            model2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, 0.0)
-            predictions2 = model2.predict(X2_test)
+            predictions2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
             stats = update_stats(stats, "Payload CNN-RNN", predictions2, y_test)
             print("CNN-RNN Payload ACCURACY: %s"%(stats["Payload CNN-RNN"][0]))
 
             # CNN-RNN classifier trained on inter-arrival times
-            model3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, 0.25)
-            predictions3 = model3.predict(X3_test)
+            predictions3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.25)
             stats = update_stats(stats, "IAT CNN-RNN", predictions3, y_test)
             print("CNN-RNN IAT ACCURACY: %s"%(stats["IAT CNN-RNN"][0]))
 
-            # Ensemble CNN-RNN
+            # Ensemble CNN-RNN (packet + payload + Inter-Arrival Time)
             predictions123 = (predictions1 * (1.0/3) + predictions2 * (1.0/3) + predictions3 * (1.0/3))
             stats = update_stats(stats, "Ensemble CNN-RNN", predictions123, y_test)
             print("Ensemble CNN-RNN ACCURACY: %s"%(stats["Ensemble CNN-RNN"][0]))
 
-            # Ensemble Random Forest + CNN-RNN
-            predictions_all = (predictions_rf * 0.5 + predictions123 * 0.5)
-            stats = update_stats(stats, "Ensemble RF + CNN-RNN", predictions_all, y_test)
+            # Ensemble (Random Forest + Ensemble CNN-RNN)
+            predictions_best = (predictions_rf * 0.5 + predictions123 * 0.5)
+            stats = update_stats(stats, "Ensemble RF + CNN-RNN", predictions_best, y_test)
             print("Ensemble RF + CNN-RNN ACCURACY: %s"%(stats["Ensemble RF + CNN-RNN"][0]))
 
-            #output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_all)
+
+            # Uncomment below to get per-SNI accuracy
+            # output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_best)
 
             # Uncomment to run once
-            FOLDS = 1
-            break
+            # FOLDS = 1
+            # break
 
         for model, stats in stats.items():
             statistics.append([model, min_connections] + [1. * x / FOLDS for x in stats])

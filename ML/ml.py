@@ -33,6 +33,8 @@ def read_csv(file_path, has_header=True):
 #***********************************************************************************
 def data_load_and_filter(datasetfile, min_connections):
     dataset = read_csv(datasetfile)
+
+    # Use first n rows if necessary
     dataset = dataset[:NUM_ROWS]
 
     X = np.array([z[1:] for z in dataset])
@@ -40,7 +42,7 @@ def data_load_and_filter(datasetfile, min_connections):
     print("Shape of X =", np.shape(X))
     print("Shape of y =", np.shape(y))     
     
-    print("Entering filtering section! ")
+    print("Entering min connections filter section! ")
     snis, counts = np.unique(y, return_counts=True)
     above_min_conns = list()
 
@@ -67,7 +69,6 @@ def MLClassification(X_train, X_test, y_train, y_test):
     rf = RandomForestClassifier(n_estimators=250, n_jobs=10)
     rf.fit(X_train, y_train)
     predictions = rf.predict(X_test)
-    accuracy = accuracy_score(predictions,y_test)
 
     report = []
     report_str = classification_report(y_test, predictions)
@@ -76,6 +77,8 @@ def MLClassification(X_train, X_test, y_train, y_test):
         if len(parsed_row) > 0:
             report.append(parsed_row)
     
+    # save accuracy, precision, recall, F1-Score to dictionary
+    accuracy = accuracy_score(predictions,y_test)
     precision = float(report[-1][1])
     recall = float(report[-1][2])
     f1_score = float(report[-1][3])
@@ -89,7 +92,6 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
     cls = autosklearn.classification.AutoSklearnClassifier(time_left_for_this_task=300, per_run_time_limit=90, ml_memory_limit=10000)
     cls.fit(X_train, y_train)
     predictions = cls.predict(X_test)
-    accuracy = accuracy_score(predictions,y_test)
 
     report = []
     report_str = classification_report(y_test, predictions)
@@ -98,6 +100,8 @@ def auto_sklearn_classification(X_train, X_test, y_train, y_test):
         if len(parsed_row) > 0:
             report.append(parsed_row)
     
+    # save accuracy, precision, recall, F1-Score to dictionary
+    accuracy = accuracy_score(predictions,y_test)
     precision = float(report[-1][1])
     recall = float(report[-1][2])
     f1_score = float(report[-1][3])
@@ -131,7 +135,7 @@ if __name__ == "__main__":
             total_cls[3] += f1_score
             
             # Uncomment to run once
-            FOLDS = 1
-            break
+            # FOLDS = 1
+            # break
 
         print("AVG Random Forest: %s, AVG Auto-Sklearn: %s "%(1. * total_rf[0] / FOLDS, 1. * total_cls[0] / FOLDS))
