@@ -25,10 +25,9 @@ from utils import *
 
 BATCH_SIZE = 64
 EPOCHS = 100 # use early stopping
-FOLDS = 10
 SEQ_LEN = 25
 NUM_ROWS = -1 # set to -1 for all data
-MIN_CONNECTIONS_LIST = [100] # try a variety of min conn settings for model
+MIN_CONNECTIONS_LIST = [600, 500, 400, 300, 200, 100] # try a variety of min conn settings for model
 
 #########################################################
 # RANDOM FOREST FOR ML CLASSIFICATION
@@ -39,32 +38,9 @@ def MLClassification(X_train, X_test, y_train, y_test):
     return rf.predict_proba(X_test)
 
 #########################################################
-# BASELINE RNN FOR SEQUENCE CLASSIFICATION
-#########################################################
-def BaselineDLClassification(X_train, X_test, y_train, y_test,time_steps, n_features, n_labels): 
-    # Create 3D input arrays (batch_size, time_steps, n_features = 1)
-    X_train = np.stack([X_train], axis=2)
-    X_test = np.stack([X_test], axis=2)
-
-    # if you dont have newest keras version, you might have to remove restore_best_weights = True
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
-    model = Sequential()
-    model.add(GRU(100, return_sequences=True, input_shape=(time_steps, n_features)))
-    model.add(GRU(100, input_shape=(time_steps, n_features)))
-    model.add(Dense(n_labels, activation='softmax')) 
-    model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
-    model.summary()    
-    model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
-    return model.predict(X_test)
-
-#########################################################
 # BEST CNN-RNN FOR SEQUENCE CLASSIFICATION
 #########################################################
-def DLClassification(X_train, X_test, y_train, y_test, time_steps, n_features, n_labels, dropout):
-    # Create 3D input arrays (batch_size, time_steps, n_features = 1)
-    X_train = np.stack([X_train], axis=2)
-    X_test = np.stack([X_test], axis=2)
-
+def DLClassification(X_train, X_test, y_train, y_test, time_steps, n_features, n_labels):
     # if you dont have newest keras version, you might have to remove restore_best_weights = True
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=5, verbose=1, mode='min', restore_best_weights=True)
     model = Sequential()
@@ -73,32 +49,32 @@ def DLClassification(X_train, X_test, y_train, y_test, time_steps, n_features, n
     model.add(Conv1D(400, 3, activation='relu'))
     model.add(BatchNormalization())
     model.add(GRU(200))
-    model.add(Dropout(dropout))
+    model.add(Dropout(0.1))
     model.add(Dense(200, activation='sigmoid')) 
-    model.add(Dropout(dropout))
+    model.add(Dropout(0.1))
     model.add(Dense(n_labels, activation='softmax')) 
     model.compile(loss='sparse_categorical_crossentropy',optimizer='adam', metrics=['acc'])
     model.summary()
-    model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=False, validation_data=(X_test, y_test), callbacks = [early_stopping])
+    model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, shuffle=True, validation_split=0.05, callbacks = [early_stopping])
     return model.predict(X_test)
 
 if __name__ == "__main__":
-    kf = KFold(n_splits=FOLDS, shuffle=True)
-
     statistics = [["model", "min connections", "accuracy", "precision", "recall", "f1_score"]]
     for min_connections in MIN_CONNECTIONS_LIST:
-        datasetfile = "DL/training/GCseq25.csv"
+        datasetfile = "DL/training/GCseq.csv"
         X, y = data_load_and_filter(datasetfile, min_connections, NUM_ROWS)
-        X1, X2, X3, X4, y, time_steps, n_labels, n_features, rev_class_map = process_dl_features(X, y, SEQ_LEN)
+        X1, X2, X3, X4, y, time_steps, n_labels, rev_class_map = process_dl_features(X, y, SEQ_LEN)
 
         datasetfile = "ML/training/GCstats.csv"
         X, _ = data_load_and_filter(datasetfile, min_connections, NUM_ROWS)
 
         # Classifiers to test!
         stats = {}
-        for model in ["Random Forest", "Baseline RNN", "Packet CNN-RNN", "Payload CNN-RNN", "IAT CNN-RNN", "Ensemble CNN-RNN", "Ensemble RF + CNN-RNN"]:
+        for model in ["Random Forest", "CNN-RNN", "Packet", "Payload", "IAT", "predictions_123", "predictions_123_rf", "predictions_domain", "predictions_ensemble_domain"]:
             stats[model] = [0,0,0,0]
 
+        FOLDS = 10
+        kf = KFold(n_splits=FOLDS, shuffle=True)
 
         # Perform 10-Fold Cross Validation
         for train_index, test_index in kf.split(X1):
@@ -115,54 +91,65 @@ if __name__ == "__main__":
             # Inter-Arrival Time features
             X3_train, X3_test = X3[train_index], X3[test_index]
 
-            # Directional features gave no improvement
-            # X4_train, X4_test = X4[train_index], X4[test_index] 
+            # Directional features
+            X4_train, X4_test = X4[train_index], X4[test_index]
 
             # Labels
             y_train, y_test = y[train_index], y[test_index]
-            
+
             # Random Forest classifier
             predictions_rf = MLClassification(X_train, X_test, y_train, y_test)
             stats = update_stats(stats, "Random Forest", predictions_rf, y_test)
             print("Random Forest ACCURACY: %s"%(stats["Random Forest"][0]))
 
-            # Baseline RNN classifier
-            predictions_bl = BaselineDLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels)
-            stats = update_stats(stats, "Baseline RNN", predictions_bl, y_test)
-            print("Baseline RNN Packet ACCURACY: %s"%(stats["Baseline RNN"][0]))
+            # Create 3D input arrays (batch_size, time_steps, n_features = 2)
+            X_train = np.stack([X1_train, X4_train], axis=2)
+            X_test = np.stack([X1_test, X4_test], axis=2)
 
-            # CNN-RNN classifier trained on packet sizes
-            predictions1 = DLClassification(X1_train, X1_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
-            stats = update_stats(stats, "Packet CNN-RNN", predictions1, y_test)
-            print("CNN-RNN Packet ACCURACY: %s"%(stats["Packet CNN-RNN"][0]))
+            predictions_1 = DLClassification(X_train, X_test, y_train, y_test, time_steps, 2, n_labels)
+            stats = update_stats(stats, "Packet", predictions_1, y_test)
+            print("Packet ACCURACY: %s"%(stats["Packet"][0]))
 
-            # CNN-RNN classifier trained on payload sizes
-            predictions2 = DLClassification(X2_train, X2_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.0)
-            stats = update_stats(stats, "Payload CNN-RNN", predictions2, y_test)
-            print("CNN-RNN Payload ACCURACY: %s"%(stats["Payload CNN-RNN"][0]))
+            # Create 3D input arrays (batch_size, time_steps, n_features = 2)
+            X_train = np.stack([X2_train, X4_train], axis=2)
+            X_test = np.stack([X2_test, X4_test], axis=2)
 
-            # CNN-RNN classifier trained on inter-arrival times
-            predictions3 = DLClassification(X3_train, X3_test, y_train, y_test, time_steps, n_features, n_labels, dropout=0.25)
-            stats = update_stats(stats, "IAT CNN-RNN", predictions3, y_test)
-            print("CNN-RNN IAT ACCURACY: %s"%(stats["IAT CNN-RNN"][0]))
+            predictions_2 = DLClassification(X_train, X_test, y_train, y_test, time_steps, 2, n_labels)
+            stats = update_stats(stats, "Payload", predictions_2, y_test)
+            print("Payload ACCURACY: %s"%(stats["Payload"][0]))
 
-            # Ensemble CNN-RNN (packet + payload + Inter-Arrival Time)
-            predictions123 = (predictions1 * (1.0/3) + predictions2 * (1.0/3) + predictions3 * (1.0/3))
-            stats = update_stats(stats, "Ensemble CNN-RNN", predictions123, y_test)
-            print("Ensemble CNN-RNN ACCURACY: %s"%(stats["Ensemble CNN-RNN"][0]))
+            # Create 3D input arrays (batch_size, time_steps, n_features = 2)
+            X_train = np.stack([X3_train, X4_train], axis=2)
+            X_test = np.stack([X3_test, X4_test], axis=2)
 
-            # Ensemble (Random Forest + Ensemble CNN-RNN)
-            predictions_best = (predictions_rf * 0.5 + predictions123 * 0.5)
-            stats = update_stats(stats, "Ensemble RF + CNN-RNN", predictions_best, y_test)
-            print("Ensemble RF + CNN-RNN ACCURACY: %s"%(stats["Ensemble RF + CNN-RNN"][0]))
+            predictions_3 = DLClassification(X_train, X_test, y_train, y_test, time_steps, 2, n_labels)
+            stats = update_stats(stats, "IAT", predictions_3, y_test)
+            print("IAT ACCURACY: %s"%(stats["IAT"][0]))
 
+            predictions_123 = (predictions_1 + predictions_2 + predictions_3) / 3.0
+            stats = update_stats(stats, "predictions_123", predictions_123, y_test)
+            print("predictions_123 ACCURACY: %s"%(stats["predictions_123"][0]))
+
+            predictions_123_rf = (predictions_rf * 0.5 + predictions_123 * 0.5)
+            stats = update_stats(stats, "predictions_123_rf", predictions_123_rf, y_test)
+            print("predictions_123_rf ACCURACY: %s"%(stats["predictions_123_rf"][0]))
+
+            # domain expertise
+            unique, freqs = np.unique(y_train, return_counts=True)
+            predictions_domain = (predictions_123 * freqs) / np.sum(predictions_123 * freqs, axis=1)[:, np.newaxis]
+            stats = update_stats(stats, "predictions_domain", predictions_domain, y_test)
+            print("predictions_domain ACCURACY: %s"%(stats["predictions_domain"][0]))
+
+            predictions_ensemble_domain = (predictions_123_rf * freqs) / np.sum(predictions_123_rf * freqs, axis=1)[:, np.newaxis]
+            stats = update_stats(stats, "predictions_ensemble_domain", predictions_ensemble_domain, y_test)
+            print("predictions_ensemble_domain ACCURACY: %s"%(stats["predictions_ensemble_domain"][0]))
 
             # Uncomment below to get per-SNI accuracy
             # output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_best)
 
             # Uncomment to run once
-            # FOLDS = 1
-            # break
+            FOLDS = 1
+            break
 
         for model, stats in stats.items():
             statistics.append([model, min_connections] + [1. * x / FOLDS for x in stats])

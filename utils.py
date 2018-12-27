@@ -118,7 +118,6 @@ def process_dl_features(X, y, SEQ_LEN=25):
     ##### BASIC PARAMETERS #####
     n_samples = np.shape(X1)[0]
     time_steps = np.shape(X1)[1] # we have a time series of 100 payload sizes
-    n_features = 1
 
     ##### CREATES MAPPING FROM SNI STRING TO INT #####
     class_map = {sni:i for i, sni in enumerate(np.unique(y))}
@@ -133,7 +132,7 @@ def process_dl_features(X, y, SEQ_LEN=25):
     ##### DUPLICATE Y LABELS, WE WILL NEED THIS LATER #####
     y = y_pd.values.reshape(n_samples,)
 
-    return X1, X2, X3, X4, y, time_steps, n_labels, n_features, rev_class_map
+    return X1, X2, X3, X4, y, time_steps, n_labels, rev_class_map
 
 
 #*********************************************************************************** 
