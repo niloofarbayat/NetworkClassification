@@ -27,7 +27,7 @@ BATCH_SIZE = 64
 EPOCHS = 100 # use early stopping
 SEQ_LEN = 25
 NUM_ROWS = -1 # set to -1 for all data
-MIN_CONNECTIONS_LIST = [600, 500, 400, 300, 200, 100] # try a variety of min conn settings for model
+MIN_CONNECTIONS_LIST = [100] # try a variety of min conn settings for model
 
 #########################################################
 # RANDOM FOREST FOR ML CLASSIFICATION
@@ -70,10 +70,10 @@ if __name__ == "__main__":
 
         # Classifiers to test!
         stats = {}
-        for model in ["Random Forest", "CNN-RNN", "Packet", "Payload", "IAT", "predictions_123", "predictions_123_rf", "predictions_domain", "predictions_ensemble_domain"]:
+        for model in ["Random Forest", "Packet", "Payload", "IAT", "Ensemble", "Ensemble + RF", "Ensemble + Domain", "Ensemble + RF + Domain"]:
             stats[model] = [0,0,0,0]
 
-        FOLDS = 10
+        FOLDS = 5
         kf = KFold(n_splits=FOLDS, shuffle=True)
 
         # Perform 10-Fold Cross Validation
@@ -127,25 +127,27 @@ if __name__ == "__main__":
             print("IAT ACCURACY: %s"%(stats["IAT"][0]))
 
             predictions_123 = (predictions_1 + predictions_2 + predictions_3) / 3.0
-            stats = update_stats(stats, "predictions_123", predictions_123, y_test)
-            print("predictions_123 ACCURACY: %s"%(stats["predictions_123"][0]))
-
-            predictions_123_rf = (predictions_rf * 0.5 + predictions_123 * 0.5)
-            stats = update_stats(stats, "predictions_123_rf", predictions_123_rf, y_test)
-            print("predictions_123_rf ACCURACY: %s"%(stats["predictions_123_rf"][0]))
+            stats = update_stats(stats, "Ensemble", predictions_123, y_test)
+            print("Ensemble ACCURACY: %s"%(stats["Ensemble"][0]))
 
             # domain expertise
-            unique, freqs = np.unique(y_train, return_counts=True)
-            predictions_domain = (predictions_123 * freqs) / np.sum(predictions_123 * freqs, axis=1)[:, np.newaxis]
-            stats = update_stats(stats, "predictions_domain", predictions_domain, y_test)
-            print("predictions_domain ACCURACY: %s"%(stats["predictions_domain"][0]))
+            _, freqs = np.unique(y_train, return_counts=True)
+            predictions_domain = domain_expertise(predictions_123, freqs, y_test)
+            stats = update_stats(stats, "Ensemble + Domain", predictions_domain, y_test)
+            print("Ensemble + Domain ACCURACY: %s"%(stats["Ensemble + Domain"][0]))
 
-            predictions_ensemble_domain = (predictions_123_rf * freqs) / np.sum(predictions_123_rf * freqs, axis=1)[:, np.newaxis]
-            stats = update_stats(stats, "predictions_ensemble_domain", predictions_ensemble_domain, y_test)
-            print("predictions_ensemble_domain ACCURACY: %s"%(stats["predictions_ensemble_domain"][0]))
+            predictions_123_rf = (predictions_rf * 0.5 + predictions_123 * 0.5)
+            stats = update_stats(stats, "Ensemble + RF", predictions_123_rf, y_test)
+            print("Ensemble + RF ACCURACY: %s"%(stats["Ensemble + RF"][0]))
+
+            # domain expertise
+            _, freqs = np.unique(y_train, return_counts=True)
+            predictions_domain = domain_expertise(predictions_123_rf, freqs, y_test)
+            stats = update_stats(stats, "Ensemble + RF + Domain", predictions_domain, y_test)
+            print("Ensemble + RF + Domain ACCURACY: %s"%(stats["Ensemble + RF + Domain"][0]))
 
             # Uncomment below to get per-SNI accuracy
-            # output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_best)
+            # output_class_accuracies(rev_class_map, predictions_rf, predictions_1, predictions_2, predictions_3, predictions_123, predictions_123_rf)
 
             # Uncomment to run once
             FOLDS = 1

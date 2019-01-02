@@ -6,46 +6,42 @@ from sklearn.metrics import classification_report
 #*********************************************************************************** 
 # Utility function to write accuracies per class to a CSV, for a variety of classifiers
 #***********************************************************************************
-def output_class_accuracies(rev_class_map, predictions_rf, predictions_bl, predictions1, predictions2, predictions3, predictions123, predictions_best):
+def output_class_accuracies(rev_class_map, predictions_rf, predictions1, predictions2, predictions3, predictions123, predictions123rf):
     classes = []
     accuracies_rf = []
-    accuracies_bl = []
     accuracies1 = []
     accuracies2 = []
     accuracies3 = []
     accuracies123 = []
-    accuracies_all= []
+    accuracies123rf= []
 
     snis = np.unique(y_test)
     for sni in snis:
         indices = np.where(y_test == sni)
         correct_rf = np.sum([np.argmax(x) for x in predictions_rf[indices]] == y_test[indices])
-        correct_bl = np.sum([np.argmax(x) for x in predictions_bl[indices]] == y_test[indices])
         correct1 = np.sum([np.argmax(x) for x in predictions1[indices]] == y_test[indices])
         correct2 = np.sum([np.argmax(x) for x in predictions2[indices]] == y_test[indices])
         correct3 = np.sum([np.argmax(x) for x in predictions3[indices]] == y_test[indices])
         correct123 = np.sum([np.argmax(x) for x in predictions123[indices]] == y_test[indices])
-        correct_all = np.sum([np.argmax(x) for x in predictions_best[indices]] == y_test[indices])
+        correct123rf = np.sum([np.argmax(x) for x in predictions123rf[indices]] == y_test[indices])
 
         classes.append(rev_class_map[sni])
         accuracies_rf.append(1. * correct_rf / len(indices[0]))
-        accuracies_bl.append(1. * correct_bl / len(indices[0]))
         accuracies1.append(1. * correct1 / len(indices[0]))
         accuracies2.append(1. * correct2 / len(indices[0]))
         accuracies3.append(1. * correct3 / len(indices[0]))
         accuracies123.append(1. * correct123 / len(indices[0]))
-        accuracies_all.append(1. * correct_all / len(indices[0]))
+        accuracies123rf.append(1. * correct123rf / len(indices[0]))
 
     with open('class_results.csv', 'w') as file:
         wr = csv.writer(file)
         wr.writerow([' '] + classes)
         wr.writerow(['Random Forest'] + accuracies_rf)
-        wr.writerow(['Baseline RNN'] + accuracies_bl)
         wr.writerow(['Packet CNN-RNN'] + accuracies1)
         wr.writerow(['Payload CNN-RNN'] + accuracies2)
         wr.writerow(['IAT CNN-RNN'] + accuracies3)
         wr.writerow(['Ensemble CNN-RNN'] + accuracies123)
-        wr.writerow(['Ensemble RF + CNN-RNN'] + accuracies_all)
+        wr.writerow(['Ensemble RF + CNN-RNN'] + accuracies123rf)
 
 def read_csv(file_path, has_header=True):
     with open(file_path) as f:
@@ -154,3 +150,26 @@ def update_stats(stats, model, predictions, y_test):
     stats[model][3] += float(report_list[-1][3])
 
     return stats
+
+def get_freq_vector(predictions, frequencies):
+    pred_freqs = np.zeros(np.shape(frequencies))
+    for pred in predictions:
+        pred_freqs[np.argmax(pred)] += 1
+
+    return 1. * pred_freqs / np.sum(pred_freqs)
+
+def domain_expertise(predictions, frequencies, y_test, iterations=10000):
+    alpha = 0.001
+    frequencies = 1. * frequencies / np.sum(frequencies)
+    pred_freqs = get_freq_vector(predictions, frequencies)
+    coefficients = np.ones(np.shape(frequencies))
+
+    for i in range(iterations):
+        #print("ACC: ", float(1. * np.sum([np.argmax(x) for x in predictions * coefficients] == y_test) / len(y_test)))
+        #print("DIFF: ", np.max(pred_freqs - frequencies))
+        pred_freqs = get_freq_vector(predictions * coefficients, frequencies)
+        index = np.argmax(pred_freqs - frequencies)
+        coefficients[index] -= alpha
+
+    return predictions * coefficients
+
