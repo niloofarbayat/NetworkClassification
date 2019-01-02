@@ -61,7 +61,7 @@ def DLClassification(X_train, X_test, y_train, y_test, time_steps, n_features, n
 if __name__ == "__main__":
     statistics = [["model", "min connections", "accuracy", "precision", "recall", "f1_score"]]
     for min_connections in MIN_CONNECTIONS_LIST:
-        datasetfile = "DL/training/GCseq.csv"
+        datasetfile = "DL/training/GCseq25.csv"
         X, y = data_load_and_filter(datasetfile, min_connections, NUM_ROWS)
         X1, X2, X3, X4, y, time_steps, n_labels, rev_class_map = process_dl_features(X, y, SEQ_LEN)
 
