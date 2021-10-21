@@ -2,7 +2,7 @@ absl-py==0.6.1
 alabaster==0.7.12
 astor==0.7.1
 auto-sklearn==0.4.1
-Babel==2.6.0
+Babel==2.9.1
 certifi==2018.11.29
 chardet==3.0.4
 ConfigSpace==0.4.7
