@@ -3,7 +3,7 @@ alabaster==0.7.12
 astor==0.7.1
 auto-sklearn==0.4.1
 Babel==2.6.0
-certifi==2018.11.29
+certifi==2022.12.7
 chardet==3.0.4
 ConfigSpace==0.4.7
 cycler==0.10.0
