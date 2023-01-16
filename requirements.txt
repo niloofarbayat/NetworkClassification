@@ -30,7 +30,7 @@ numpy==1.15.4
 packaging==18.0
 pandas==0.23.4
 protobuf==3.6.1
-psutil==5.4.8
+psutil==5.6.6
 Pygments==2.3.0
 pynisher==0.4.2
 pyparsing==2.3.0
